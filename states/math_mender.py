@@ -200,11 +200,8 @@ class MathMender():
             pygame.draw.rect(tile_surface, self.WHITE, (2, 2, self.TILE_SIZE_B - 4, self.TILE_SIZE_B - 4))
             pygame.draw.rect(tile_surface, self.BLACK, (0, 0, self.TILE_SIZE_B, self.TILE_SIZE_B), 1)
 
-            # Render the text
             text_surface = self.FONT_PCS.render(tile, True, self.BLACK)
-            # Calculate the position to center the text on the tile
             text_rect = text_surface.get_rect(center=(self.TILE_SIZE_B // 2, self.TILE_SIZE_B // 2))
-            # Blit the text onto the tile surface
             tile_surface.blit(text_surface, text_rect)
 
             # Render the value in smaller font at the lower right corner
@@ -218,6 +215,12 @@ class MathMender():
 
         for i, (tile, points) in enumerate(self.player_pieces):
             draw_tile(tile, points, x_offset + i * (self.TILE_SIZE_B + 10), y_offset)
+    
+    def check_piece_at_ptiles(self):
+        pass
+
+    def compute_piece_score(self):
+        pass
 
     def get_ai_pieces(self):
         pass
