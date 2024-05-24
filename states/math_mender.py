@@ -138,7 +138,9 @@ class MathMender():
                 # clickable board
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # Left mouse button
-                        self.handle_clicked_board_xy(pygame.mouse.get_pos())
+                        self.handle_clicked_board_xy(pygame.mouse.get_pos(), "add_tile")
+                    if event.button == 3:
+                        self.handle_clicked_board_xy(pygame.mouse.get_pos(), "remove_tile")
 
             self.display.blit(self.math_mender_bg, (0, 0))
             self.init_board()
@@ -202,7 +204,7 @@ class MathMender():
 
                     self.draw_tile(piece["tile"], piece["points"], x, y, self.GRAY)
 
-    def handle_clicked_board_xy(self, pos):
+    def handle_clicked_board_xy(self, pos, mode):
         x, y = pos
         col = int((x - 13 * (self.TILE_SIZE + self.TILE_MARGIN)) // (self.TILE_SIZE + self.TILE_MARGIN))
         row = int((y - 0.3 * (self.TILE_SIZE + self.TILE_MARGIN)) // (self.TILE_SIZE + self.TILE_MARGIN))
@@ -210,18 +212,29 @@ class MathMender():
         # Check if col and row are within the board
         if 0 <= row < 15 and 0 <= col < 15:
             print("Clicked cell:", row, col)
+            
+            if mode == "add_tile":
+                # Check if there is an expanded tile to be placed
+                if self.clicked_tile:
+                    # Place the expanded tile onto the game board if the cell is empty
+                    if self.curr_game_board[row][col] is None:
+                        self.curr_game_board[row][col] = self.clicked_tile
+                        self.curr_equation.append(self.clicked_tile)
+                        print(f"\n>>curr_equation: {self.curr_equation}")
+                        # Remove the tile from player pieces
+                        self.player_pieces.remove(self.clicked_tile)
+                        # Reset expanded_tile
+                        self.clicked_tile = None
+            
+            if mode == "remove_tile":
+                for piece in self.curr_equation:
+                    self.player_pieces.append(piece)
 
-            # Check if there is an expanded tile to be placed
-            if self.clicked_tile:
-                # Place the expanded tile onto the game board if the cell is empty
-                if self.curr_game_board[row][col] is None:
-                    self.curr_game_board[row][col] = self.clicked_tile
-                    self.curr_equation.append(self.clicked_tile)
-                    print(f"\n>>curr_equation: {self.curr_equation}")
-                    # Remove the tile from player pieces
-                    self.player_pieces.remove(self.clicked_tile)
-                    # Reset expanded_tile
-                    self.clicked_tile = None
+                    if self.curr_game_board[row][col] == piece:
+                        self.curr_game_board[row][col] = None
+                    
+                    self.curr_equation.remove(piece)
+
         else:
             print("Clicked outside the board")
 
