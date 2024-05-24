@@ -93,19 +93,18 @@ class MathMender():
             '=': 20, 'blank': 4,
         }
 
-        # for drag and drop
-        self.dragging = False
-        self.dragged_piece = None
-        self.offset_x = 0
-        self.offset_y = 0
+        # click click haha
+        self.clicked_tile = None
+        self.curr_equation = []
 
         # Define the game board grid
-        self.game_board = [[None for _ in range(15)] for _ in range(15)]
+        self.curr_game_board = [[None for _ in range(15)] for _ in range(15)]
+        self.game_board_details = [[None for _ in range(15)] for _ in range(15)]
 
     def run(self):
         self.load_assets()
         self.draw_bg()
-        self.draw_board()
+        self.init_board()
         self.draw_pieces_pcs()
         self.get_player_pieces()
 
@@ -114,27 +113,15 @@ class MathMender():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     quit()
-                elif event.type == pygame.MOUSEBUTTONDOWN:
+                
+                # piece clicked
+                if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         mouse_x, mouse_y = pygame.mouse.get_pos()
                         for piece in self.player_pieces:
                             if piece["rect"].collidepoint(mouse_x, mouse_y):
-                                self.dragging = True
-                                self.dragged_piece = piece
-                                self.offset_x = piece["rect"].x - mouse_x
-                                self.offset_y = piece["rect"].y - mouse_y
+                                self.toggle_expand_tile(piece)
                                 break
-                elif event.type == pygame.MOUSEBUTTONUP:
-                    if event.button == 1 and self.dragging:
-                        self.dragging = False
-                        self.dragged_piece = None
-                elif event.type == pygame.MOUSEMOTION:
-                    if self.dragging:
-                        mouse_x, mouse_y = event.pos
-                        new_x = mouse_x + self.offset_x
-                        new_y = mouse_y + self.offset_y
-                        self.dragged_piece["rect"].x = new_x
-                        self.dragged_piece["rect"].y = new_y
 
                 # play pass buttons
                 if event.type == pygame.MOUSEBUTTONUP:
@@ -148,10 +135,17 @@ class MathMender():
                                 if rect["id"] == "pass":
                                     print("pass button clicked")
 
+                # clickable board
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:  # Left mouse button
+                        self.handle_clicked_board_xy(pygame.mouse.get_pos())
+
             self.display.blit(self.math_mender_bg, (0, 0))
-            self.draw_board()
+            self.init_board()
+            self.draw_updated_board()
             self.draw_pieces_pcs()
             self.draw_player_pieces()
+            self.draw_player_pieces_with_click()
             self.draw_rect_btn()
             pygame.display.flip()
             self.clock.tick(self.FPS)
@@ -159,27 +153,33 @@ class MathMender():
     def draw_bg(self):
         self.math_mender_bg = pygame.image.load(os.path.join(self.images_dir, "GAME_BG.png"))
 
-    def draw_board(self):
+    def init_board(self):
         for row in range(15):
             for col in range(15):
                 tile_color = self.WHITE
                 font_text = ''
+                self.game_board_details[row][col] = ''
 
                 if (row, col) in self.GREEN_TILES:
                     tile_color = self.GREEN
                     font_text = '3N'
+                    self.game_board_details[row][col] = '3N'
                 elif (row, col) in self.BLUE_TILES:
                     tile_color = self.BLUE
                     font_text = '2N'
+                    self.game_board_details[row][col] = '2N'
                 elif (row, col) in self.YELLOW_TILES:
                     tile_color = self.YELLOW
                     font_text = '2A'
+                    self.game_board_details[row][col] = '2A'
                 elif (row, col) in self.RED_TILES:
                     tile_color = self.RED
                     font_text = '3A'
+                    self.game_board_details[row][col] = '3A'
                 elif (row, col) == self.START_TILE:
                     tile_color = self.YELLOW
                     font_text = 'START'
+                    self.game_board_details[row][col] = 'START'
 
                 x = (col + 13) * (self.TILE_SIZE + self.TILE_MARGIN)
                 y = (row + 0.3) * (self.TILE_SIZE + self.TILE_MARGIN)
@@ -191,6 +191,39 @@ class MathMender():
                     text_surface = self.FONT.render(font_text, True, self.FONT_COLOR)
                     text_rect = text_surface.get_rect(center=(x + self.TILE_SIZE / 2, y + self.TILE_SIZE / 2))
                     self.display.blit(text_surface, text_rect)
+    
+    def draw_updated_board(self):
+        for row in range(15):
+            for col in range(15):
+                piece = self.curr_game_board[row][col]
+                if piece:
+                    x = (col + 13) * (self.TILE_SIZE + self.TILE_MARGIN)
+                    y = (row + 0.3) * (self.TILE_SIZE + self.TILE_MARGIN)
+
+                    self.draw_tile(piece["tile"], piece["points"], x, y, self.GRAY)
+
+    def handle_clicked_board_xy(self, pos):
+        x, y = pos
+        col = int((x - 13 * (self.TILE_SIZE + self.TILE_MARGIN)) // (self.TILE_SIZE + self.TILE_MARGIN))
+        row = int((y - 0.3 * (self.TILE_SIZE + self.TILE_MARGIN)) // (self.TILE_SIZE + self.TILE_MARGIN))
+        
+        # Check if col and row are within the board
+        if 0 <= row < 15 and 0 <= col < 15:
+            print("Clicked cell:", row, col)
+
+            # Check if there is an expanded tile to be placed
+            if self.clicked_tile:
+                # Place the expanded tile onto the game board if the cell is empty
+                if self.curr_game_board[row][col] is None:
+                    self.curr_game_board[row][col] = self.clicked_tile
+                    self.curr_equation.append(self.clicked_tile)
+                    print(f"\n>>curr_equation: {self.curr_equation}")
+                    # Remove the tile from player pieces
+                    self.player_pieces.remove(self.clicked_tile)
+                    # Reset expanded_tile
+                    self.clicked_tile = None
+        else:
+            print("Clicked outside the board")
 
     def draw_pieces_pcs(self):
         x_offsets = [40, 110, 170, 230]
@@ -247,11 +280,11 @@ class MathMender():
 
     def draw_player_pieces(self):
         for piece in self.player_pieces:
-            self.draw_tile(piece["tile"], piece["points"], piece["rect"].x, piece["rect"].y)
+            self.draw_tile(piece["tile"], piece["points"], piece["rect"].x, piece["rect"].y, self.GRAY)
 
-    def draw_tile(self, tile, points, x, y):
+    def draw_tile(self, tile, points, x, y, curr_color):
         tile_surface = pygame.Surface((self.TILE_SIZE, self.TILE_SIZE))
-        tile_surface.fill(self.GRAY)  # Change the color to gray
+        tile_surface.fill(curr_color)
         pygame.draw.rect(tile_surface, self.GRAY, (2, 2, self.TILE_SIZE - 4, self.TILE_SIZE - 4))
         pygame.draw.rect(tile_surface, self.BLACK, (0, 0, self.TILE_SIZE, self.TILE_SIZE), 1)
 
@@ -269,6 +302,23 @@ class MathMender():
         # Blit the tile surface onto the display
         self.display.blit(tile_surface, (x, y))
     
+    def toggle_expand_tile(self, clicked_tile):
+        if self.clicked_tile == clicked_tile:
+            # If the clicked tile is already expanded, revert it
+            self.clicked_tile = None
+        else:
+            # Otherwise, expand the clicked tile and revert the previously expanded tile
+            self.clicked_tile = clicked_tile
+
+    def draw_player_pieces_with_click(self):
+        for piece in self.player_pieces:
+            # Draw tile with click effect if it's the expanded tile
+            if piece == self.clicked_tile:
+                enlarged_rect = piece["rect"].inflate(5, 5)  
+                self.draw_tile(piece["tile"], piece["points"], enlarged_rect.x, enlarged_rect.y, self.YELLOW)
+            else:
+                self.draw_tile(piece["tile"], piece["points"], piece["rect"].x, piece["rect"].y, self.GRAY)
+
     def draw_rect_btn(self):
         self.rect_buttions = [
             {"id": "play", "rect_btn": pygame.Rect(104, 530, 139, 45)},
