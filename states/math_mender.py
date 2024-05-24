@@ -65,7 +65,7 @@ class MathMender():
         self.GRAY = (169, 169, 169)
 
         # board details
-        self.TILE_SIZE = 35
+        self.TILE_SIZE = 39
         self.TILE_MARGIN = 3
         self.FONT_SIZE = 15
         self.FONT_COLOR = self.BLACK
@@ -136,10 +136,23 @@ class MathMender():
                         self.dragged_piece["rect"].x = new_x
                         self.dragged_piece["rect"].y = new_y
 
+                # play pass buttons
+                if event.type == pygame.MOUSEBUTTONUP:
+                    if event.button == 1:
+                        mouse_x, mouse_y = pygame.mouse.get_pos()
+                        for rect in self.rect_buttions:
+                            if rect["rect_btn"].collidepoint(mouse_x, mouse_y):
+                                print("Rectangle clicked:", rect["id"])
+                                if rect["id"] == "play":
+                                    print("play button clicked")
+                                if rect["id"] == "pass":
+                                    print("pass button clicked")
+
             self.display.blit(self.math_mender_bg, (0, 0))
             self.draw_board()
             self.draw_pieces_pcs()
             self.draw_player_pieces()
+            self.draw_rect_btn()
             pygame.display.flip()
             self.clock.tick(self.FPS)
     
@@ -168,8 +181,8 @@ class MathMender():
                     tile_color = self.YELLOW
                     font_text = 'START'
 
-                x = (col + 11) * (self.TILE_SIZE + self.TILE_MARGIN)
-                y = (row + 0.5) * (self.TILE_SIZE + self.TILE_MARGIN)
+                x = (col + 13) * (self.TILE_SIZE + self.TILE_MARGIN)
+                y = (row + 0.3) * (self.TILE_SIZE + self.TILE_MARGIN)
 
                 pygame.draw.rect(self.display, tile_color, (x, y, self.TILE_SIZE, self.TILE_SIZE))
                 pygame.draw.rect(self.display, self.BLACK, (x, y, self.TILE_SIZE, self.TILE_SIZE), 1)
@@ -180,8 +193,8 @@ class MathMender():
                     self.display.blit(text_surface, text_rect)
 
     def draw_pieces_pcs(self):
-        x_offsets = [20, 90, 150, 210]
-        y_offset = 170
+        x_offsets = [40, 110, 170, 230]
+        y_offset = 190
         line_spacing = 20
 
         def draw_text(text, x, y):
@@ -205,7 +218,13 @@ class MathMender():
             draw_column(column, x_offsets[i], y_offset)
 
     def get_player_pieces(self):
-        selected_tiles = random.sample(list(self.TILE_PCS.keys()), 7)
+        
+        operators = random.sample(list(self.TILE_OPERATOR_POINTS.keys()), 2)
+        numbers = random.sample(list(self.TILE_NUMBER_POINTS.keys()), 6)
+        equal_sign = random.sample(list(self.TILE_EQUAL_POINTS.keys()), 1)
+
+        selected_tiles = equal_sign + numbers + operators
+
         self.player_pieces = []
         for tile in selected_tiles:
             piece = {
@@ -220,8 +239,8 @@ class MathMender():
         self.update_player_pieces_positions()
 
     def update_player_pieces_positions(self):
-        x_offset = 20
-        y_offset = 380
+        x_offset = 40
+        y_offset = 390
         for i, piece in enumerate(self.player_pieces):
             piece["rect"].x = x_offset + i * (self.TILE_SIZE + 10)
             piece["rect"].y = y_offset
@@ -249,6 +268,15 @@ class MathMender():
 
         # Blit the tile surface onto the display
         self.display.blit(tile_surface, (x, y))
+    
+    def draw_rect_btn(self):
+        self.rect_buttions = [
+            {"id": "play", "rect_btn": pygame.Rect(104, 530, 139, 45)},
+            {"id": "pass", "rect_btn": pygame.Rect(265, 530, 139, 45)},
+        ]
+
+        for rect in self.rect_buttions:
+            pygame.draw.rect(self.display, self.WHITE, rect["rect_btn"], 1)
 
     def get_ai_pieces(self):
         pass
@@ -260,8 +288,8 @@ class MathMender():
 
 ### remove after dev
 if __name__ == "__main__":
-    SCREEN_WIDTH = 1000
-    SCREEN_HEIGHT = 600
+    SCREEN_WIDTH = 1200
+    SCREEN_HEIGHT = 650
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     game_state_manager = GameStateManager('MathMender')
     game_state_manager.set_state(MathMender(screen, game_state_manager))
