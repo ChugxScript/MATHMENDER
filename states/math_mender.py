@@ -12,6 +12,7 @@ class MathMender():
         self.gameStateManager = gameStateManager
         self.FPS = 60
         self.clock = pygame.time.Clock()
+        self.total_points = 0
 
         # define tile tile status
         self.START_TILE = (7, 7)
@@ -61,7 +62,7 @@ class MathMender():
         self.GREEN = (0, 255, 0)
         self.BLUE = (0, 0, 255)
         self.YELLOW = (255, 255, 0)
-        self.GRAY = (169, 169, 169)
+        self.CORAL = (218, 112, 214)
 
         # board details
         self.TILE_SIZE = 39
@@ -154,6 +155,8 @@ class MathMender():
             self.draw_player_pieces()
             self.draw_player_pieces_with_click()
             self.draw_rect_btn()
+            self.calculate_total_points()
+            self.draw_total_points()
             pygame.display.flip()
             self.clock.tick(self.FPS)
     
@@ -207,7 +210,7 @@ class MathMender():
                     x = (col + 13) * (self.TILE_SIZE + self.TILE_MARGIN)
                     y = (row + 0.3) * (self.TILE_SIZE + self.TILE_MARGIN)
 
-                    self.draw_tile(piece["tile"], piece["points"], x, y, self.GRAY)
+                    self.draw_tile(piece["tile"], piece["points"], x, y, self.CORAL)
 
     def handle_clicked_board_xy(self, pos, mode):
         x, y = pos
@@ -225,16 +228,20 @@ class MathMender():
                     if self.curr_game_board[row][col] is None:
                         # Create a copy of the clicked tile to modify its value
                         placed_tile = self.clicked_tile.copy()
-                        
+
                         # Store the original value
                         placed_tile["original_tile"] = placed_tile["tile"]
-                        
+
+                        # Mark the tile as not fixed initially
+                        placed_tile["fixed"] = False
+
                         # Adjust the tile value based on tile color, but not for the answer tile
                         if placed_tile["tile"] != '=':
-                            if (row, col) in self.GREEN_TILES and placed_tile["tile"].isdigit():
-                                placed_tile["tile"] = str(int(placed_tile["tile"]) * 3)
-                            elif (row, col) in self.BLUE_TILES and placed_tile["tile"].isdigit():
-                                placed_tile["tile"] = str(int(placed_tile["tile"]) * 2)
+                            # Remove the multiplication effect when landing on colored tiles
+                            if (row, col) in self.GREEN_TILES or (row, col) in self.BLUE_TILES or \
+                                    (row, col) in self.YELLOW_TILES or (row, col) in self.RED_TILES:
+                                if placed_tile["tile"].isdigit():
+                                    placed_tile["tile"] = str(int(placed_tile["tile"]))
                         
                         # Store the row and col in the placed tile
                         placed_tile["row"] = row
@@ -248,12 +255,13 @@ class MathMender():
                         self.player_pieces.remove(self.clicked_tile)
                         # Reset expanded_tile
                         self.clicked_tile = None
+
             
             if mode == "remove_tile":
                 # Create a list to store pieces to be removed
                 pieces_to_remove = []
                 for piece in self.curr_equation:
-                    if self.curr_game_board[row][col] == piece:
+                    if self.curr_game_board[row][col] == piece and not piece.get("fixed", False):
                         # Restore the original value
                         if "original_tile" in piece:
                             piece["tile"] = piece["original_tile"]
@@ -324,12 +332,12 @@ class MathMender():
 
     def draw_player_pieces(self):
         for piece in self.player_pieces:
-            self.draw_tile(piece["tile"], piece["points"], piece["rect"].x, piece["rect"].y, self.GRAY)
+            self.draw_tile(piece["tile"], piece["points"], piece["rect"].x, piece["rect"].y, self.CORAL)
 
     def draw_tile(self, tile, points, x, y, curr_color):
         tile_surface = pygame.Surface((self.TILE_SIZE, self.TILE_SIZE))
         tile_surface.fill(curr_color)
-        pygame.draw.rect(tile_surface, self.GRAY, (2, 2, self.TILE_SIZE - 4, self.TILE_SIZE - 4))
+        pygame.draw.rect(tile_surface, self.CORAL, (2, 2, self.TILE_SIZE - 4, self.TILE_SIZE - 4))
         pygame.draw.rect(tile_surface, self.BLACK, (0, 0, self.TILE_SIZE, self.TILE_SIZE), 1)
 
         # Render the text
@@ -361,7 +369,7 @@ class MathMender():
                 enlarged_rect = piece["rect"].inflate(5, 5)  
                 self.draw_tile(piece["tile"], piece["points"], enlarged_rect.x, enlarged_rect.y, self.YELLOW)
             else:
-                self.draw_tile(piece["tile"], piece["points"], piece["rect"].x, piece["rect"].y, self.GRAY)
+                self.draw_tile(piece["tile"], piece["points"], piece["rect"].x, piece["rect"].y, self.CORAL)
 
     def draw_rect_btn(self):
         self.rect_buttions = [
@@ -378,9 +386,7 @@ class MathMender():
     def is_valid(self):
         def evaluate_equation(equation):
             try:
-                # Replace 'x' with '*', '÷' with '/', '^2' with '**2', and '√' with 'math.sqrt(' for evaluation
                 equation = equation.replace('x', '*').replace('÷', '/').replace('^2', '**2').replace('√', 'math.sqrt(')
-                # Add closing parenthesis for sqrt
                 equation = equation.replace('math.sqrt(', 'math.sqrt(').replace('math.sqrt(', 'math.sqrt(')
                 return eval(equation)
             except Exception as e:
@@ -388,11 +394,9 @@ class MathMender():
                 return None
 
         def check_equation(equation, answer_pos):
-            # Split the equation into left and right parts
             if '=' in equation:
                 left, right = equation.split('=')
-                # Check for blank tiles and try possible values
-                for num in range(10):  # Assuming single digit substitutions for simplicity
+                for num in range(10):
                     modified_left = left.replace('blank', str(num))
                     modified_right = right.replace('blank', str(num))
                     left_value = evaluate_equation(modified_left)
@@ -410,7 +414,6 @@ class MathMender():
                 while col < 15 and self.curr_game_board[row][col] is not None:
                     equation += self.curr_game_board[row][col]["tile"]
                     if self.curr_game_board[row][col]["tile"] == '=':
-                        # Determine the answer position based on the equation
                         if col > 0 and self.curr_game_board[row][col - 1] is not None:
                             answer_pos = (row, col + 1)
                         else:
@@ -420,7 +423,6 @@ class MathMender():
                 while row < 15 and self.curr_game_board[row][col] is not None:
                     equation += self.curr_game_board[row][col]["tile"]
                     if self.curr_game_board[row][col]["tile"] == '=':
-                        # Determine the answer position based on the equation
                         if row > 0 and self.curr_game_board[row - 1][col] is not None:
                             answer_pos = (row + 1, col)
                         else:
@@ -428,20 +430,49 @@ class MathMender():
                     row += 1
             return equation, answer_pos
 
+        # Check if any equation touches or lands on the START tile
+        start_touched = False
+        for piece in self.curr_equation:
+            if (piece["row"], piece["col"]) == self.START_TILE:
+                start_touched = True
+                break
+        
+        if not start_touched:
+            print("No equation touches or lands on the START tile. Equation is invalid.")
+            self.show_invalid_equation_prompt()
+            return False
+
         for piece in self.curr_equation:
             row, col = piece["row"], piece["col"]
-            # Check horizontally
             horizontal_equation, horizontal_answer_pos = extract_equation(row, col, "horizontal")
             if check_equation(horizontal_equation, horizontal_answer_pos):
+                for piece in self.curr_equation:
+                    piece["fixed"] = True
+                self.draw_new_random_tiles()
+                
+                # Multiply the answer by 2 if the tile color is 2N
+                if self.game_board_details[horizontal_answer_pos[0]][horizontal_answer_pos[1]] == '2N':
+                    print("Answer multiplied by 2!")
+                # Multiply the answer by 3 if the tile color is 3N
+                elif self.game_board_details[horizontal_answer_pos[0]][horizontal_answer_pos[1]] == '3N':
+                    print("Answer multiplied by 3!")
                 return True
 
-            # Check vertically
             vertical_equation, vertical_answer_pos = extract_equation(row, col, "vertical")
             if check_equation(vertical_equation, vertical_answer_pos):
+                for piece in self.curr_equation:
+                    piece["fixed"] = True
+                self.draw_new_random_tiles()
+                
+                # Multiply the answer by 2 if the tile color is 2N
+                if self.game_board_details[vertical_answer_pos[0]][vertical_answer_pos[1]] == '2N':
+                    print("Answer multiplied by 2!")
+                # Multiply the answer by 3 if the tile color is 3N
+                elif self.game_board_details[vertical_answer_pos[0]][vertical_answer_pos[1]] == '3N':
+                    print("Answer multiplied by 3!")
                 return True
 
-        # If no valid equation is found, remove the pieces and restore original values
-        print("Invalid equation. Please try again.")  # Console prompt
+        print("Invalid equation. Please try again.")
         self.show_invalid_equation_prompt()
 
         for piece in self.curr_equation:
@@ -453,6 +484,28 @@ class MathMender():
             self.player_pieces.append(piece)
         self.curr_equation.clear()
         return False
+
+    def draw_new_random_tiles(self):
+        used_tiles = [piece["tile"] for piece in self.curr_equation]
+
+        for tile in used_tiles:
+            if tile.isdigit() or tile == '0':
+                new_tile = random.choice(list(self.TILE_NUMBER_POINTS.keys()))
+            elif tile in self.TILE_OPERATOR_POINTS:
+                new_tile = random.choice(list(self.TILE_OPERATOR_POINTS.keys()))
+            else:
+                new_tile = '='
+
+            piece = {
+                "tile": new_tile,
+                "points": self.TILE_NUMBER_POINTS.get(new_tile) or self.TILE_OPERATOR_POINTS.get(new_tile) or self.TILE_EQUAL_POINTS.get(new_tile) or 0,
+                "rect": pygame.Rect(0, 0, self.TILE_SIZE, self.TILE_SIZE)
+            }
+            self.player_pieces.append(piece)
+            if new_tile in self.TILE_PCS:
+                self.TILE_PCS[new_tile] -= 1
+
+        self.update_player_pieces_positions()
 
     def show_invalid_equation_prompt(self):
         # Create a semi-transparent overlay
@@ -469,6 +522,27 @@ class MathMender():
         self.display.blit(text_surface, text_rect)
         pygame.display.flip()
         pygame.time.wait(750)  
+
+    def calculate_total_points(self):
+        # Reset total points
+        self.total_points = 0
+
+        # Iterate through all tiles and add their points
+        for row in self.curr_game_board:
+            for tile in row:
+                if tile:
+                    self.total_points += tile["points"]
+
+    def draw_total_points(self):
+        # Render the total points text
+        font = pygame.font.Font(None, 36)
+        text_surface = font.render(f"{self.total_points}", True, self.WHITE)
+
+        # Define the position of the text
+        text_rect = text_surface.get_rect(topleft=(170, 92))  # Adjust the position of the text
+
+        # Blit the text onto the display
+        self.display.blit(text_surface, text_rect)
 
     def load_assets(self):
         self.assets_dir = os.path.join("assets")
