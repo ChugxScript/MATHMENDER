@@ -1,6 +1,7 @@
 import pygame
 import os
 import random
+import math
 
 ### remove after dev
 from game_state_manager import GameStateManager
@@ -96,8 +97,10 @@ class MathMender():
         # click click haha
         self.clicked_tile = None
         self.curr_equation = []
+        self.valid_tiles = [(7,7)]
 
         # Define the game board grid
+        self.game_board = [[None for _ in range(15)] for _ in range(15)]
         self.curr_game_board = [[None for _ in range(15)] for _ in range(15)]
         self.game_board_details = [[None for _ in range(15)] for _ in range(15)]
 
@@ -157,6 +160,8 @@ class MathMender():
             self.draw_rect_btn()
             self.calculate_total_points()
             self.draw_total_points()
+            self.valid_tiles = self.valid_tiles_to_drop()
+            self.draw_valid_tiles()
             pygame.display.flip()
             self.clock.tick(self.FPS)
     
@@ -217,8 +222,8 @@ class MathMender():
         col = int((x - 13 * (self.TILE_SIZE + self.TILE_MARGIN)) // (self.TILE_SIZE + self.TILE_MARGIN))
         row = int((y - 0.3 * (self.TILE_SIZE + self.TILE_MARGIN)) // (self.TILE_SIZE + self.TILE_MARGIN))
         
-        # Check if col and row are within the board
-        if 0 <= row < 15 and 0 <= col < 15:
+        # print(f"\n>>self.valid_tiles: {self.valid_tiles}")
+        if ((row, col) in self.valid_tiles):
             print("Clicked cell:", row, col)
             
             if mode == "add_tile":
@@ -228,9 +233,6 @@ class MathMender():
                     if self.curr_game_board[row][col] is None:
                         # Create a copy of the clicked tile to modify its value
                         placed_tile = self.clicked_tile.copy()
-
-                        # Store the original value
-                        placed_tile["original_tile"] = placed_tile["tile"]
 
                         # Mark the tile as not fixed initially
                         placed_tile["fixed"] = False
@@ -250,29 +252,20 @@ class MathMender():
                         self.curr_game_board[row][col] = placed_tile
                         self.curr_equation.append(placed_tile)
                         # Print the current equation without problematic characters
-                        print(f"\n>>curr_equation: {[piece['tile'] for piece in self.curr_equation if piece['tile'] not in ['√']]}")
+                        print(f"\n>>self.curr_equation: {[piece['tile'] for piece in self.curr_equation if piece['tile'] not in ['√']]}")
                         # Remove the tile from player pieces
                         self.player_pieces.remove(self.clicked_tile)
                         # Reset expanded_tile
                         self.clicked_tile = None
 
-            
+        elif self.curr_game_board[row][col] is not None:
             if mode == "remove_tile":
-                # Create a list to store pieces to be removed
-                pieces_to_remove = []
                 for piece in self.curr_equation:
-                    if self.curr_game_board[row][col] == piece and not piece.get("fixed", False):
-                        # Restore the original value
-                        if "original_tile" in piece:
-                            piece["tile"] = piece["original_tile"]
-                            del piece["original_tile"]
-                        self.curr_game_board[row][col] = None
-                        pieces_to_remove.append(piece)
-                
-                # Remove the pieces from curr_equation and add them back to player_pieces
-                for piece in pieces_to_remove:
-                    self.curr_equation.remove(piece)
-                    self.player_pieces.append(piece)
+                    if piece == self.curr_game_board[row][col]:
+                        self.player_pieces.append(piece)
+                        self.curr_equation.remove(piece)
+
+                self.curr_game_board[row][col] = None
 
         else:
             print("Clicked outside the board")
@@ -384,112 +377,196 @@ class MathMender():
         pass
 
     def is_valid(self):
-        def evaluate_equation(equation):
-            if not equation or equation.isspace():
-                print(f"Error: Empty or whitespace equation: '{equation}'")
-                return None
-            try:
-                equation = equation.replace('x', '*').replace('÷', '/').replace('^2', '**2').replace('√', 'math.sqrt(')
-                return eval(equation)
-            except Exception as e:
-                print(f"Error evaluating equation '{equation}': {e}")
-                return None
+        if self.curr_game_board[7][7] is not None:
+            if self.curr_game_board != self.game_board:
+                curr_row = []
+                curr_col = []
+                print(f"\n>>self.curr_game_board: ")
+                for tile in self.curr_game_board:
+                    print(tile)
+                
+                print(f"\n>>self.curr_equation: ")
+                for tile in self.curr_equation:
+                    print(tile)
+                    curr_row.append(tile["row"])
+                    curr_col.append(tile["col"])
 
-        def check_equation(equation, answer_pos):
-            if '=' in equation:
-                left, right = equation.split('=')
-                for num in range(10):
-                    modified_left = left.replace('blank', str(num))
-                    modified_right = right.replace('blank', str(num))
-                    left_value = evaluate_equation(modified_left)
-                    right_value = evaluate_equation(modified_right)
-                    if left_value is not None and right_value is not None and left_value == right_value:
-                        print(f"Valid equation with blank as {num}: {modified_left} == {modified_right}")
+                print(f"\n>>curr_row: {curr_row}")
+                print(f">>curr_col: {curr_col}")
+
+                '''
+                    check the equation horizontal and vertical
+
+                    check curr_row if all are the same
+                        meaning the user is making equation horizontally
+
+                        we will also check previous rows to check
+                        if the user continue a previous equation
+                '''
+
+                prev_equation = ""
+                curr_equation = ""
+                has_blank = False
+
+                # Check if there is a blank tile in the equation
+                has_blank = any(tile["tile"] == "blank" for tile in self.curr_equation)
+
+                if not has_blank:
+                    if all(x == curr_row[0] for x in curr_row):
+                            print(f"\n>>curr_row: {curr_row}")
+                            for col_a in range(15):
+                                if self.curr_game_board[curr_row[0]][col_a] is not None:
+                                    curr_equation += self.curr_game_board[curr_row[0]][col_a]['tile']
+
+                                if self.game_board[curr_row[0]][col_a] is not None:
+                                    prev_equation += self.game_board[curr_row[0]][col_a]['tile']
+                            
+                    elif all(x == curr_col[0] for x in curr_col):
+                        print(f"\n>>curr_col: {curr_col}")
+                        for row_a in range(15):
+                            if self.curr_game_board[row_a][curr_col[0]] is not None:
+                                curr_equation += self.curr_game_board[row_a][curr_col[0]]['tile']
+
+                            if self.game_board[row_a][curr_col[0]] is not None:
+                                prev_equation += self.game_board[row_a][curr_col[0]]['tile']
+
+                else:
+                    for tile in self.curr_equation:
+                        if tile['tile'] != 'blank':
+                            curr_equation += tile['tile']
+
+                print(f"\n>>prev_equation: {prev_equation}")
+                print(f">>curr_equation: {curr_equation}")
+
+                converted_equation = self.convert_operators(curr_equation)
+                if converted_equation is not None:
+                    result = eval(converted_equation)
+                    print(f">>result: {result}")
+
+                    if result:
+                        self.draw_new_random_tiles()
+                        '''
+                            copy the curr_game_board content to the game_board
+                        '''
+                        for row in range(15):
+                            for col in range(15):
+                                self.game_board[row][col] = self.curr_game_board[row][col]
+
+                        self.curr_equation.clear()
                         return True
+                    else:
+                        for piece in self.curr_equation:
+                            self.curr_game_board[piece["row"]][piece["col"]] = None
+                            self.player_pieces.append(piece)
+                        self.curr_equation.clear()
+
+                        print(f"\n>>[ERROR] INVALID EQUATION")
+                        self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
+                        return False
+                else:
+                    for piece in self.curr_equation:
+                        self.curr_game_board[piece["row"]][piece["col"]] = None
+                        self.player_pieces.append(piece)
+                    self.curr_equation.clear()
+
+                    print(f"\n>>[ERROR] INVALID EQUATION")
+                    self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
+                    return False
+            else:
+                for piece in self.curr_equation:
+                    self.curr_game_board[piece["row"]][piece["col"]] = None
+                    self.player_pieces.append(piece)
+                self.curr_equation.clear()
+
+                print(f"\n>>[ERROR] NO CHANGES IN BOARD")
+                self.show_invalid_equation_prompt("[ERROR] NO CHANGES IN BOARD")
                 return False
-            return False
-
-        def extract_equation(row, col, direction):
-            equation = ""
-            answer_pos = None
-            if direction == "horizontal":
-                while col < 15 and self.curr_game_board[row][col] is not None:
-                    equation += self.curr_game_board[row][col]["tile"]
-                    if self.curr_game_board[row][col]["tile"] == '=':
-                        if col > 0 and self.curr_game_board[row][col - 1] is not None:
-                            answer_pos = (row, col + 1)
-                        else:
-                            answer_pos = (row, col - 1)
-                    col += 1
-            elif direction == "vertical":
-                while row < 15 and self.curr_game_board[row][col] is not None:
-                    equation += self.curr_game_board[row][col]["tile"]
-                    if self.curr_game_board[row][col]["tile"] == '=':
-                        if row > 0 and self.curr_game_board[row - 1][col] is not None:
-                            answer_pos = (row + 1, col)
-                        else:
-                            answer_pos = (row - 1, col)
-                    row += 1
-            return equation, answer_pos
-
-        def is_within_tile_limit():
-            return len(self.curr_equation) <= 9
-
-        if not is_within_tile_limit():
-            print("Invalid equation: More than 9 tiles placed.")
-            self.show_invalid_equation_prompt()
+        else:
             for piece in self.curr_equation:
-                row, col = piece["row"], piece["col"]
-                if "original_tile" in piece:
-                    piece["tile"] = piece["original_tile"]
-                    del piece["original_tile"]
-                self.curr_game_board[row][col] = None
+                self.curr_game_board[piece["row"]][piece["col"]] = None
                 self.player_pieces.append(piece)
             self.curr_equation.clear()
+
+            print(f"\n>>[ERROR] CENTER IS EMPTY")
+            self.show_invalid_equation_prompt("[ERROR] CENTER IS EMPTY")
             return False
+    
+    def convert_operators(self, equation_str):
+        # Replace special operators with Python arithmetic operators or math functions
+        conversion_dict = {
+            '^2': '**2',
+            'x': '*',
+            '÷': '/',
+            '=': '==',
+        }
+        for op, replacement in conversion_dict.items():
+            equation_str = equation_str.replace(op, replacement)
 
-        valid = False
+        try:
+            # Handle square root operator
+            equation_parts = equation_str.split('==')
+            lhs = equation_parts[0]
+            rhs = equation_parts[1]
 
-        # Check horizontally
-        for row in range(15):
-            for col in range(15):
-                if self.curr_game_board[row][col] is not None:
-                    horizontal_equation, horizontal_answer_pos = extract_equation(row, col, "horizontal")
-                    if horizontal_equation and check_equation(horizontal_equation, horizontal_answer_pos):
-                        for piece in self.curr_equation:
-                            piece["fixed"] = True
-                        valid = True
+            if '√' in lhs:
+                # Extract the number before the square root operator
+                number = ''
+                for char in reversed(lhs):
+                    if char.isdigit() or char == '.':
+                        number = char + number
+                    else:
+                        break
 
-        # Check vertically
-        for col in range(15):
+                # Replace the square root operator with math.sqrt({}) and format the equation string
+                equation_str = "math.sqrt({})=={}".format(number, rhs)
+
+            return equation_str
+        except Exception as e:
+            return None
+    
+    def valid_tiles_to_drop(self):
+        if self.curr_game_board[7][7] is not None:
+            directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+            valid_positions = []
+            occupied_tiles = []
+
             for row in range(15):
-                if self.curr_game_board[row][col] is not None:
-                    vertical_equation, vertical_answer_pos = extract_equation(row, col, "vertical")
-                    if vertical_equation and check_equation(vertical_equation, vertical_answer_pos):
-                        for piece in self.curr_equation:
-                            piece["fixed"] = True
-                        valid = True
+                for col in range(15):
+                    if self.curr_game_board[row][col] is not None:
+                        occupied_tiles.append((row, col))
 
-        if valid:
-            self.draw_new_random_tiles()
+            for row_a, col_a in occupied_tiles:
+                for dx, dy in directions:
+                    new_x, new_y = row_a + dx, col_a + dy
+                    if self.is_valid_tile(new_x, new_y):
+                        valid_positions.append((new_x, new_y))
+        else:
+            valid_positions = [(7,7)]
+        
+        return valid_positions
+
+    def is_valid_tile(self, row, col):
+        size = 15
+        if 0 <= row < size and 0 <= col < size and self.curr_game_board[row][col] is None:
             return True
-
-        print("Invalid equation. Please try again.")
-        self.show_invalid_equation_prompt()
-
-        for piece in self.curr_equation:
-            row, col = piece["row"], piece["col"]
-            if "original_tile" in piece:
-                piece["tile"] = piece["original_tile"]
-                del piece["original_tile"]
-            self.curr_game_board[row][col] = None
-            self.player_pieces.append(piece)
-        self.curr_equation.clear()
         return False
-
-
-    def is_within_tile_limit():
-        return len(self.curr_equation) <= 9
+    
+    def draw_valid_tiles(self):
+        for row, col in self.valid_tiles:
+            x = (col + 13) * (self.TILE_SIZE + self.TILE_MARGIN)
+            y = (row + 0.3) * (self.TILE_SIZE + self.TILE_MARGIN)
+            
+            # Create a surface with per-pixel alpha values
+            border_surface = pygame.Surface((self.TILE_SIZE, self.TILE_SIZE), pygame.SRCALPHA)
+            
+            # Draw a semi-transparent gold rectangle on the surface
+            pygame.draw.rect(border_surface, (255, 215, 0, 153), (0, 0, self.TILE_SIZE, self.TILE_SIZE))
+            
+            # Draw black border on the surface
+            pygame.draw.rect(border_surface, (0, 150, 0), (0, 0, self.TILE_SIZE, self.TILE_SIZE), 3)
+            
+            # Blit the surface onto the display at the tile position
+            self.display.blit(border_surface, (x, y))
 
     def draw_new_random_tiles(self):
         used_tiles = [piece["tile"] for piece in self.curr_equation]
@@ -513,21 +590,30 @@ class MathMender():
 
         self.update_player_pieces_positions()
 
-    def show_invalid_equation_prompt(self):
+    def show_invalid_equation_prompt(self, message):
         # Create a semi-transparent overlay
         overlay = pygame.Surface((self.display.get_width(), self.display.get_height()), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 128))  # Black with 50% opacity
 
-        # Render the text
+        # Render the text with a black background
         font = pygame.font.Font(None, 48)
-        text_surface = font.render("Invalid", True, self.RED)
+        text_surface = font.render(message, True, self.RED)
         text_rect = text_surface.get_rect(center=(self.display.get_width() // 2, self.display.get_height() // 2))
-
-        # Blit the overlay and text onto the display
+        
+        # Create a surface for the text with a black background
+        text_bg_surface = pygame.Surface((text_rect.width + 20, text_rect.height + 20))
+        text_bg_surface.fill((0, 0, 0))  # Black background
+        text_bg_surface.blit(text_surface, (10, 10))  # Blit the text onto the black background surface
+        
+        # Blit the overlay onto the display
         self.display.blit(overlay, (0, 0))
-        self.display.blit(text_surface, text_rect)
+        
+        # Blit the text with black background onto the display
+        self.display.blit(text_bg_surface, (text_rect.x - 10, text_rect.y - 10))  # Adjust position for padding
+        
         pygame.display.flip()
-        pygame.time.wait(750)  
+        pygame.time.wait(1000)
+
 
     def calculate_total_points(self):
         # Reset total points
