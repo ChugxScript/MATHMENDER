@@ -385,9 +385,11 @@ class MathMender():
 
     def is_valid(self):
         def evaluate_equation(equation):
+            if not equation or equation.isspace():
+                print(f"Error: Empty or whitespace equation: '{equation}'")
+                return None
             try:
                 equation = equation.replace('x', '*').replace('÷', '/').replace('^2', '**2').replace('√', 'math.sqrt(')
-                equation = equation.replace('math.sqrt(', 'math.sqrt(').replace('math.sqrt(', 'math.sqrt(')
                 return eval(equation)
             except Exception as e:
                 print(f"Error evaluating equation '{equation}': {e}")
@@ -430,47 +432,47 @@ class MathMender():
                     row += 1
             return equation, answer_pos
 
-        # Check if any equation touches or lands on the START tile
-        start_touched = False
-        for piece in self.curr_equation:
-            if (piece["row"], piece["col"]) == self.START_TILE:
-                start_touched = True
-                break
-        
-        if not start_touched:
-            print("No equation touches or lands on the START tile. Equation is invalid.")
+        def is_within_tile_limit():
+            return len(self.curr_equation) <= 9
+
+        if not is_within_tile_limit():
+            print("Invalid equation: More than 9 tiles placed.")
             self.show_invalid_equation_prompt()
+            for piece in self.curr_equation:
+                row, col = piece["row"], piece["col"]
+                if "original_tile" in piece:
+                    piece["tile"] = piece["original_tile"]
+                    del piece["original_tile"]
+                self.curr_game_board[row][col] = None
+                self.player_pieces.append(piece)
+            self.curr_equation.clear()
             return False
 
-        for piece in self.curr_equation:
-            row, col = piece["row"], piece["col"]
-            horizontal_equation, horizontal_answer_pos = extract_equation(row, col, "horizontal")
-            if check_equation(horizontal_equation, horizontal_answer_pos):
-                for piece in self.curr_equation:
-                    piece["fixed"] = True
-                self.draw_new_random_tiles()
-                
-                # Multiply the answer by 2 if the tile color is 2N
-                if self.game_board_details[horizontal_answer_pos[0]][horizontal_answer_pos[1]] == '2N':
-                    print("Answer multiplied by 2!")
-                # Multiply the answer by 3 if the tile color is 3N
-                elif self.game_board_details[horizontal_answer_pos[0]][horizontal_answer_pos[1]] == '3N':
-                    print("Answer multiplied by 3!")
-                return True
+        valid = False
 
-            vertical_equation, vertical_answer_pos = extract_equation(row, col, "vertical")
-            if check_equation(vertical_equation, vertical_answer_pos):
-                for piece in self.curr_equation:
-                    piece["fixed"] = True
-                self.draw_new_random_tiles()
-                
-                # Multiply the answer by 2 if the tile color is 2N
-                if self.game_board_details[vertical_answer_pos[0]][vertical_answer_pos[1]] == '2N':
-                    print("Answer multiplied by 2!")
-                # Multiply the answer by 3 if the tile color is 3N
-                elif self.game_board_details[vertical_answer_pos[0]][vertical_answer_pos[1]] == '3N':
-                    print("Answer multiplied by 3!")
-                return True
+        # Check horizontally
+        for row in range(15):
+            for col in range(15):
+                if self.curr_game_board[row][col] is not None:
+                    horizontal_equation, horizontal_answer_pos = extract_equation(row, col, "horizontal")
+                    if horizontal_equation and check_equation(horizontal_equation, horizontal_answer_pos):
+                        for piece in self.curr_equation:
+                            piece["fixed"] = True
+                        valid = True
+
+        # Check vertically
+        for col in range(15):
+            for row in range(15):
+                if self.curr_game_board[row][col] is not None:
+                    vertical_equation, vertical_answer_pos = extract_equation(row, col, "vertical")
+                    if vertical_equation and check_equation(vertical_equation, vertical_answer_pos):
+                        for piece in self.curr_equation:
+                            piece["fixed"] = True
+                        valid = True
+
+        if valid:
+            self.draw_new_random_tiles()
+            return True
 
         print("Invalid equation. Please try again.")
         self.show_invalid_equation_prompt()
@@ -484,6 +486,10 @@ class MathMender():
             self.player_pieces.append(piece)
         self.curr_equation.clear()
         return False
+
+
+    def is_within_tile_limit():
+        return len(self.curr_equation) <= 9
 
     def draw_new_random_tiles(self):
         used_tiles = [piece["tile"] for piece in self.curr_equation]
