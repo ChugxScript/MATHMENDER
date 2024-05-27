@@ -99,6 +99,12 @@ class MathMender():
         self.curr_equation = []
         self.valid_tiles = [(7,7)]
 
+        # players details
+        self.PLAYER_TURN = True
+        self.AI_TURN = False
+        self.PLAYER_SCORE = 0
+        self.AI_SCORE = 0
+
         # Define the game board grid
         self.game_board = [[None for _ in range(15)] for _ in range(15)]
         self.curr_game_board = [[None for _ in range(15)] for _ in range(15)]
@@ -117,39 +123,43 @@ class MathMender():
                     pygame.quit()
                     quit()
                 
-                # piece clicked
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1:
-                        mouse_x, mouse_y = pygame.mouse.get_pos()
-                        for piece in self.player_pieces:
-                            if piece["rect"].collidepoint(mouse_x, mouse_y):
-                                self.toggle_expand_tile(piece)
-                                break
+                if self.PLAYER_TURN:
+                    # piece clicked
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        if event.button == 1:
+                            mouse_x, mouse_y = pygame.mouse.get_pos()
+                            for piece in self.player_pieces:
+                                if piece["rect"].collidepoint(mouse_x, mouse_y):
+                                    self.toggle_expand_tile(piece)
+                                    break
 
-                # play pass buttons
-                if event.type == pygame.MOUSEBUTTONUP:
-                    if event.button == 1:
-                        mouse_x, mouse_y = pygame.mouse.get_pos()
-                        for rect in self.rect_buttions:
-                            if rect["rect_btn"].collidepoint(mouse_x, mouse_y):
-                                print("Rectangle clicked:", rect["id"])
-                                if rect["id"] == "play":
-                                    print("play button clicked")
-                                    if self.is_valid():
-                                        print("Valid equation!")
-                                        # Take appropriate action for a valid equation
-                                    else:
-                                        print("Invalid equation!")
-                                        # Take appropriate action for an invalid equation
-                                if rect["id"] == "pass":
-                                    print("pass button clicked")
+                    # play pass buttons
+                    if event.type == pygame.MOUSEBUTTONUP:
+                        if event.button == 1:
+                            mouse_x, mouse_y = pygame.mouse.get_pos()
+                            for rect in self.rect_buttions:
+                                if rect["rect_btn"].collidepoint(mouse_x, mouse_y):
+                                    print("Rectangle clicked:", rect["id"])
+                                    if rect["id"] == "play":
+                                        print("play button clicked")
+                                        if self.is_valid():
+                                            print("Valid equation!")
+                                            # Take appropriate action for a valid equation
+                                        else:
+                                            print("Invalid equation!")
+                                            # Take appropriate action for an invalid equation
+                                    if rect["id"] == "pass":
+                                        print("pass button clicked")
 
-                # clickable board
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1:  # Left mouse button
-                        self.handle_clicked_board_xy(pygame.mouse.get_pos(), "add_tile")
-                    if event.button == 3:
-                        self.handle_clicked_board_xy(pygame.mouse.get_pos(), "remove_tile")
+                    # clickable board
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        if event.button == 1:  # Left mouse button
+                            self.handle_clicked_board_xy(pygame.mouse.get_pos(), "add_tile")
+                        if event.button == 3:
+                            self.handle_clicked_board_xy(pygame.mouse.get_pos(), "remove_tile")
+            
+            if self.AI_TURN:
+                pass
 
             self.display.blit(self.math_mender_bg, (0, 0))
             self.init_board()
@@ -158,7 +168,6 @@ class MathMender():
             self.draw_player_pieces()
             self.draw_player_pieces_with_click()
             self.draw_rect_btn()
-            self.calculate_total_points()
             self.draw_total_points()
             self.valid_tiles = self.valid_tiles_to_drop()
             self.draw_valid_tiles()
@@ -236,6 +245,11 @@ class MathMender():
 
                         # Mark the tile as not fixed initially
                         placed_tile["fixed"] = False
+
+                        if self.PLAYER_TURN:
+                            placed_tile["player"] = "PLAYER"
+                        if self.AI_TURN:
+                            placed_tile["player"] = "AI"
 
                         # Adjust the tile value based on tile color, but not for the answer tile
                         if placed_tile["tile"] != '=':
@@ -406,26 +420,75 @@ class MathMender():
 
                 prev_equation = ""
                 curr_equation = ""
+                curr_equation_points = 0
                 has_blank = False
+                is_2N = False # BLUE
+                is_3N = False # GREEN
+                is_2A = False # YELLOW
+                is_3A= False # RED
 
                 # Check if there is a blank tile in the equation
                 has_blank = any(tile["tile"] == "blank" for tile in self.curr_equation)
+                all_tiles = set(self.BLUE_TILES) | set(self.GREEN_TILES) | set(self.YELLOW_TILES) | set(self.RED_TILES)
 
                 if not has_blank:
                     if all(x == curr_row[0] for x in curr_row):
-                            print(f"\n>>curr_row: {curr_row}")
-                            for col_a in range(15):
-                                if self.curr_game_board[curr_row[0]][col_a] is not None:
-                                    curr_equation += self.curr_game_board[curr_row[0]][col_a]['tile']
+                        print(f"\n>>curr_row: {curr_row}")
+                        for col_a in range(15):
+                            if self.curr_game_board[curr_row[0]][col_a] is not None:
+                                curr_equation += self.curr_game_board[curr_row[0]][col_a]['tile']
+                                # curr_equation_points += self.curr_game_board[curr_row[0]][col_a]['points']
 
-                                if self.game_board[curr_row[0]][col_a] is not None:
-                                    prev_equation += self.game_board[curr_row[0]][col_a]['tile']
+                                # check if tile in power ups
+                                if (curr_row[0], col_a) in self.BLUE_TILES:
+                                    # the point of the tile that land on 2N tile will multiplied by 2
+                                    is_2N = True
+                                    curr_equation_points += (int(self.curr_game_board[curr_row[0]][col_a]['points']) * 2)
+
+                                if (curr_row[0], col_a) in self.GREEN_TILES:
+                                    # the point of the tile that land on 3N tile will multiplied by 3
+                                    is_3N = True
+                                    curr_equation_points += (int(self.curr_game_board[curr_row[0]][col_a]['points']) * 3)
+
+                                if (curr_row[0], col_a) in self.YELLOW_TILES:
+                                    is_2A = True
+                                    curr_equation_points += int(self.curr_game_board[curr_row[0]][col_a]['points'])
+
+                                if (curr_row[0], col_a) in self.RED_TILES:
+                                    is_3A = True
+                                    curr_equation_points += int(self.curr_game_board[curr_row[0]][col_a]['points'])
+                                
+                                if (curr_row[0], col_a) not in all_tiles:
+                                    curr_equation_points += int(self.curr_game_board[curr_row[0]][col_a]['points'])
+
+                            if self.game_board[curr_row[0]][col_a] is not None:
+                                prev_equation += self.game_board[curr_row[0]][col_a]['tile']
                             
                     elif all(x == curr_col[0] for x in curr_col):
                         print(f"\n>>curr_col: {curr_col}")
                         for row_a in range(15):
                             if self.curr_game_board[row_a][curr_col[0]] is not None:
                                 curr_equation += self.curr_game_board[row_a][curr_col[0]]['tile']
+                                # curr_equation_points += self.curr_game_board[row_a][curr_col[0]]['points']
+
+                                if (row_a, curr_col[0]) in self.BLUE_TILES:
+                                    is_2N = True
+                                    curr_equation_points += (int(self.curr_game_board[row_a][curr_col[0]]['points']) * 2)
+
+                                if (row_a, curr_col[0]) in self.GREEN_TILES:
+                                    is_3N = True
+                                    curr_equation_points += (int(self.curr_game_board[row_a][curr_col[0]]['points']) * 3)
+
+                                if (row_a, curr_col[0]) in self.YELLOW_TILES:
+                                    is_2A = True
+                                    curr_equation_points += int(self.curr_game_board[row_a][curr_col[0]]['points'])
+
+                                if (row_a, curr_col[0]) in self.RED_TILES:
+                                    is_3A = True
+                                    curr_equation_points += int(self.curr_game_board[row_a][curr_col[0]]['points'])
+
+                                if (row_a, curr_col[0]) not in all_tiles:
+                                    curr_equation_points += int(self.curr_game_board[row_a][curr_col[0]]['points'])
 
                             if self.game_board[row_a][curr_col[0]] is not None:
                                 prev_equation += self.game_board[row_a][curr_col[0]]['tile']
@@ -437,13 +500,48 @@ class MathMender():
 
                 print(f"\n>>prev_equation: {prev_equation}")
                 print(f">>curr_equation: {curr_equation}")
+                print(f">>curr_equation_points: {curr_equation_points}")
 
-                converted_equation = self.convert_operators(curr_equation)
-                if converted_equation is not None:
-                    result = eval(converted_equation)
-                    print(f">>result: {result}")
+                lhs, rhs = self.convert_operators(curr_equation)
+                if lhs is not None and rhs is not None:
+                    evaluated_lhs = eval(lhs)
+                    evaluated_rhs = eval(rhs)
+                    is_correct = evaluated_lhs == evaluated_rhs
+                    print(f">>is_correct: {is_correct}")
+                    print(f">>evaluated_lhs: {evaluated_lhs}")
 
-                    if result:
+                    if is_correct:
+                        if self.PLAYER_TURN:
+                            if is_2A:
+                                # the answer of the equation will multiply by 2 plus the points of each tiles
+                                self.PLAYER_SCORE += (int(evaluated_lhs) * 2) + curr_equation_points
+                            if is_3A:
+                                # the answer of the equation will multiply by 3 plus the points of each tiles
+                                self.PLAYER_SCORE += (int(evaluated_lhs) * 3) + curr_equation_points
+                            
+                            if is_2N or is_3N:
+                                # already added in checking of power ups
+                                self.PLAYER_SCORE += curr_equation_points
+                            
+                            if not is_2N and not is_3N and not is_2A and not is_3A:
+                                self.PLAYER_SCORE += curr_equation_points
+                        
+                        if self.AI_TURN:
+                            if is_2A:
+                                # the answer of the equation will multiply by 2 plus the points of each tiles
+                                self.AI_SCORE += (evaluated_lhs * 2) + curr_equation_points
+                            if is_3A:
+                                # the answer of the equation will multiply by 3 plus the points of each tiles
+                                self.AI_SCORE += (evaluated_lhs * 3) + curr_equation_points
+                            
+                            if is_2N or is_3N:
+                                # already added in checking of power ups
+                                self.AI_SCORE += curr_equation_points
+                            
+                            if not is_2N and not is_3N and not is_2A and not is_3A:
+                                self.AI_SCORE += curr_equation_points
+                        
+                        self.draw_total_points()
                         self.draw_new_random_tiles()
                         '''
                             copy the curr_game_board content to the game_board
@@ -509,20 +607,15 @@ class MathMender():
             rhs = equation_parts[1]
 
             if '√' in lhs:
-                # Extract the number before the square root operator
-                number = ''
-                for char in reversed(lhs):
-                    if char.isdigit() or char == '.':
-                        number = char + number
-                    else:
-                        break
+                # Extract the number after the square root operator
+                lhs = lhs.replace('√', 'math.sqrt(') + ')'
+            
+            if '√' in rhs:
+                rhs = rhs.replace('√', 'math.sqrt(') + ')'
 
-                # Replace the square root operator with math.sqrt({}) and format the equation string
-                equation_str = "math.sqrt({})=={}".format(number, rhs)
-
-            return equation_str
+            return lhs, rhs
         except Exception as e:
-            return None
+            return None, None
     
     def valid_tiles_to_drop(self):
         if self.curr_game_board[7][7] is not None:
@@ -614,27 +707,19 @@ class MathMender():
         pygame.display.flip()
         pygame.time.wait(1000)
 
-
-    def calculate_total_points(self):
-        # Reset total points
-        self.total_points = 0
-
-        # Iterate through all tiles and add their points
-        for row in self.curr_game_board:
-            for tile in row:
-                if tile:
-                    self.total_points += tile["points"]
-
     def draw_total_points(self):
         # Render the total points text
         font = pygame.font.Font(None, 36)
-        text_surface = font.render(f"{self.total_points}", True, self.WHITE)
+        PLAYERscore_surface = font.render(f"{self.PLAYER_SCORE}", True, self.WHITE)
+        AIscore_surface = font.render(f"{self.AI_SCORE}", True, self.WHITE)
 
         # Define the position of the text
-        text_rect = text_surface.get_rect(topleft=(170, 92))  # Adjust the position of the text
+        PLAYERscore_rect = PLAYERscore_surface.get_rect(topleft=(160, 92)) 
+        AIscore_rect = PLAYERscore_surface.get_rect(topleft=(420, 92)) 
 
         # Blit the text onto the display
-        self.display.blit(text_surface, text_rect)
+        self.display.blit(PLAYERscore_surface, PLAYERscore_rect)
+        self.display.blit(AIscore_surface, AIscore_rect)
 
     def load_assets(self):
         self.assets_dir = os.path.join("assets")
