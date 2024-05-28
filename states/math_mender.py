@@ -2,6 +2,7 @@ import pygame
 import os
 import random
 import math
+import numpy as np
 
 ### remove after dev
 from game_state_manager import GameStateManager
@@ -105,6 +106,14 @@ class MathMender():
         self.PLAYER_SCORE = 0
         self.AI_SCORE = 0
 
+        # Include additional initialization for ACO parameters
+        self.pheromone = np.ones((15, 15))  # Example initialization, adjust as needed
+        self.alpha = 1.0  # Influence of pheromone
+        self.beta = 2.0   # Influence of heuristic information
+        self.evaporation_rate = 0.5
+        self.ant_count = 10
+        self.iterations = 100
+
         # Define the game board grid
         self.game_board = [[None for _ in range(15)] for _ in range(15)]
         self.curr_game_board = [[None for _ in range(15)] for _ in range(15)]
@@ -116,6 +125,7 @@ class MathMender():
         self.init_board()
         self.draw_pieces_pcs()
         self.get_player_pieces()
+        self.get_ai_pieces()
 
         while True:
             for event in pygame.event.get():
@@ -159,7 +169,7 @@ class MathMender():
                             self.handle_clicked_board_xy(pygame.mouse.get_pos(), "remove_tile")
             
             if self.AI_TURN:
-                pass
+                self.ai_make_move()
 
             self.display.blit(self.math_mender_bg, (0, 0))
             self.init_board()
@@ -310,7 +320,6 @@ class MathMender():
             draw_column(column, x_offsets[i], y_offset)
 
     def get_player_pieces(self):
-        
         operators = random.sample(list(self.TILE_OPERATOR_POINTS.keys()), 2)
         numbers = random.sample(list(self.TILE_NUMBER_POINTS.keys()), 6)
         equal_sign = random.sample(list(self.TILE_EQUAL_POINTS.keys()), 1)
@@ -386,9 +395,6 @@ class MathMender():
 
         for rect in self.rect_buttions:
             pygame.draw.rect(self.display, self.WHITE, rect["rect_btn"], 1)
-
-    def get_ai_pieces(self):
-        pass
 
     def is_valid(self):
         if self.curr_game_board[7][7] is not None:
@@ -720,6 +726,523 @@ class MathMender():
         # Blit the text onto the display
         self.display.blit(PLAYERscore_surface, PLAYERscore_rect)
         self.display.blit(AIscore_surface, AIscore_rect)
+    
+    ### ----- AI PART -----
+    def ai_make_move(self):
+        best_solution = None
+        best_score = -float('inf')
+        for iteration in range(self.iterations):
+            solutions = []
+            for ant in range(self.ant_count):
+                solution, score = self.construct_solution()
+                solutions.append((solution, score))
+                if score > best_score:
+                    best_solution = solution
+                    best_score = score
+            self.update_pheromones(solutions)
+        
+        if best_solution:
+            self.apply_solution(best_solution)
+            self.AI_TURN = False
+            self.PLAYER_TURN = True
+    
+    def construct_solution(self):
+        current_solution = []
+        current_score = 0
+        for tile in self.ai_pieces:
+            possible_positions = self.valid_tiles_to_drop()  # Method to get valid positions for a tile
+            probabilities = self.calculate_probabilities(possible_positions, tile)
+            chosen_position = self.select_position(possible_positions, probabilities)
+            if chosen_position:
+                self.place_tile(tile, chosen_position)  # Method to place a tile on the board
+                current_solution.append((tile, chosen_position))
+                current_score += self.evaluate_position(chosen_position, tile)  # Method to evaluate position score
+        return current_solution, current_score
+    
+    def calculate_probabilities(self, positions, tile):
+        probabilities = []
+        total_sum = 0
+        for pos in positions:
+            pheromone_level = self.pheromone[pos]
+            heuristic_value = self.heuristic_value(pos, tile)
+            probability = (pheromone_level ** self.alpha) * (heuristic_value ** self.beta)
+            probabilities.append(probability)
+            total_sum += probability
+        probabilities = [prob / total_sum for prob in probabilities]
+        return probabilities
+
+    def select_position(self, positions, probabilities):
+        return random.choices(positions, probabilities, k=1)[0]
+
+    def update_pheromones(self, solutions):
+        self.pheromone *= (1 - self.evaporation_rate)
+        for solution, score in solutions:
+            for tile, pos in solution:
+                self.pheromone[pos] += score
+
+    def apply_solution(self, solution):
+        for tile, pos in solution:
+            self.place_tile(tile, pos)
+
+    def heuristic_value(self, pos, tile):
+        row, col = pos
+        heuristic_score = 0
+
+        '''
+            check the valid tile (pos) if the adjacent tiles is not None
+                meaning the adjacent tile is either a number, operation, or equal sign
+            
+            first is check if the valid tile has 2 or more adjacent tiles
+            
+            if theres only one djacent tile meaning the either the left, right, top, or bottom tiles of the valid tile
+                is empty or None
+            
+            if there are 2 adjacent tile meaning the left and right OR top and bottom are adjacent
+                we'll deal with this by comparing if the both adjacent tiles (2 tiles) has same rows or cols
+                
+                if both adjacent tiles has SAME ROWS meaning the current tile (pos) is between top and bottom tiles
+                    this position is valid since it has only 2 adjcent tiles
+                    [
+                        ' ', ' ', '   ', ' ', ' ', '',
+                        '3', '+', ' 3 ', '=', '6', '',
+                        ' ', ' ', '[P]', ' ', ' ', '',
+                        '4', '=', ' 2 ', '+', '2', '',
+                        ' ', ' ', '   ', ' ', ' ', '',
+                    ]
+
+                if both adjacent tiles has SAME COLS meaning the current tile (pos) is between left and right tiles
+                    this position is valid since it has only 2 adjcent tiles 
+                    [
+                        ' ', '1', ' + ', '3', '=', '4',
+                        ' ', '+', '   ', '+', ' ', '',
+                        ' ', '11','[P]', '2', ' ', '',
+                        ' ', '=', '   ', '=', ' ', '',
+                        ' ', '12','   ', '5', ' ', '',
+                        ' ', ' ', '   ', ' ', ' ', '',
+                    ]
+            
+            elif there are more than 2; like the current tile (pos) has 3 or 4 adjacent tiles:
+                IS IT POSSIBLE TO MAKE AN EQUATION FROM IT ???
+                [
+                    ' ', '1', '   ', ' ', ' ', '',
+                    '3', '+', ' 3 ', '=', '6', '',
+                    ' ', '1', '[P]', ' ', ' ', '',
+                    '4', '=', ' 2 ', '+', '2', '',
+                    ' ', '2', '   ', ' ', ' ', '',
+                ]
+                adjacent tiles are 3(1,2), 1(2,1), and 2(3,2) 
+
+                [
+                    ' ', '1', '   ', '5', ' ', '',
+                    '3', '+', ' 3 ', '=', '6', '',
+                    ' ', '1', '[P]', '2', ' ', '',
+                    '4', '=', ' 2 ', '+', '2', '',
+                    ' ', '2', '   ', '3', ' ', '',
+                ]
+                adjacent tiles are 3(1,2), 1(2,1), 2(3,2), and 2(2,3)
+
+                its kinda difficult tho
+                for safetly purposes we will not include if the current tile(pos) that has more than 2 adacent tiles HAHAHAHAHA
+        '''
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # Up, Down, Left, Right
+        adj_pos = []
+        adj_score = 0
+        is_tile_number = False
+        is_tile_operator = False
+        is_tile_equal = False
+
+        for d_row, d_col in directions:
+            if 0 <= row + d_row < 15 and 0 <= col + d_col < 15 and self.curr_game_board[row + d_row][col + d_col] is not None:
+                adj_row, adj_col = row + d_row, col + d_col
+                adj_pos.append((adj_row, adj_col))
+        
+        if len(adj_pos) < 3:
+            for d_row, d_col in adj_pos:
+                # give points
+                if self.curr_game_board[d_row][d_col]['tile'] in self.TILE_NUMBER_POINTS:
+                    is_tile_number = True
+                    adj_score += 1 
+                if self.curr_game_board[d_row][d_col]['tile'] in self.TILE_OPERATOR_POINTS:
+                    is_tile_operator = True
+                    adj_score += 1 
+                if self.curr_game_board[d_row][d_col]['tile'] in self.TILE_EQUAL_POINTS:
+                    is_tile_equal = True
+                    adj_score += 1 
+        
+        if is_tile_number:
+            heuristic_score += adj_score * 30
+        if is_tile_operator:
+            heuristic_score += adj_score * 20
+        if is_tile_equal:
+            heuristic_score += adj_score * 10
+
+        # check if the current tile (pos) is in power up tiles
+        if (row, col) in self.BLUE_TILES:
+            heuristic_score += 30
+        elif (row, col) in self.GREEN_TILES:
+            heuristic_score += 50
+        elif (row, col) in self.YELLOW_TILES:
+            heuristic_score += 75
+        elif (row, col) in self.RED_TILES:
+            heuristic_score += 100 
+
+        '''
+            Potential to complete an equation
+            Here you can implement a check to see if placing the tile helps form a complete equation
+            For simplicity, we'll just give a flat score if it completes an equation
+        '''
+        equation_completion_bonus = 0
+
+        if len(adj_pos) < 3:
+            equation = ""
+
+            if len(adj_pos) == 1:
+                row_a, col_a = adj_pos[0]
+                if row_a == row:
+                    # horizontal
+                    equation = self.form_equation_from_position(pos, tile, "horizontal")
+                elif col_a == col:
+                    # vertical
+                    equation = self.form_equation_from_position(pos, tile, "vertical")
+            
+            elif len(adj_pos) == 2:
+                row_a, col_a = adj_pos[0]
+                row_b, col_b = adj_pos[1]
+
+                if row_a == row_b:
+                    # horizontal
+                    equation = self.form_equation_from_position(pos, tile, "horizontal")
+                elif col_a == col_b:
+                    # vertical
+                    equation = self.form_equation_from_position(pos, tile, "vertical")
+
+            if self.is_valid_equation(equation):
+                equation_completion_bonus = 100
+
+        heuristic_score += equation_completion_bonus
+
+        return heuristic_score
+
+    def form_equation_from_position(self, pos, tile, mode):
+        # Form a potential equation string starting from this position
+        # For simplicity, we'll assume it's a horizontal equation
+        row, col = pos
+        equation_a = []
+        equation_b = []
+        equation_c = []
+        equation_b.append(tile)
+        equation = ""
+
+        if mode == "vertical":
+            # get part a 
+            row_n = row
+            while True:
+                row_n -= 1
+                if row_n < 0: 
+                    break
+                if self.curr_game_board[row_n][col] is not None:
+                    equation_a.append(self.curr_game_board[row_n][col])
+                else:
+                    break
+            
+            # get part c
+            row_n = row
+            while True:
+                row_n += 1
+                if row_n > 15: 
+                    break
+                if self.curr_game_board[row_n][col] is not None:
+                    equation_c.append(self.curr_game_board[row_n][col])
+                else:
+                    break
+
+            # combine all parts
+            for t in equation_b:
+                equation_a.append(t)
+            for t in equation_c:
+                equation_a.append(t)
+
+            # get the equation string
+            for t in equation_a:
+                equation += t['tile']
+
+        elif mode == "horizontal":
+            # get part a 
+            col_n = col
+            while True:
+                col_n -= 1
+                if col_n < 0: 
+                    break
+                if self.curr_game_board[row][col_n] is not None:
+                    equation_a.append(self.curr_game_board[row][col_n])
+                else:
+                    break
+            
+            # get part c
+            col_n = col
+            while True:
+                col_n += 1
+                if col_n > 15: 
+                    break
+                if self.curr_game_board[row][col_n] is not None:
+                    equation_c.append(self.curr_game_board[row][col_n])
+                else:
+                    break
+
+            # combine all parts
+            for t in equation_b:
+                equation_a.append(t)
+            for t in equation_c:
+                equation_a.append(t)
+
+            # get the equation string
+            for t in equation_a:
+                equation += t['tile']
+
+        return equation
+
+    def is_valid_equation(self, equation):
+        lhs, rhs = self.convert_operators(equation)
+        if lhs is not None and rhs is not None:
+            return eval(lhs) == eval(rhs)
+        return False
+
+    def get_ai_pieces(self):
+        operators = random.sample(list(self.TILE_OPERATOR_POINTS.keys()), 2)
+        numbers = random.sample(list(self.TILE_NUMBER_POINTS.keys()), 6)
+        equal_sign = random.sample(list(self.TILE_EQUAL_POINTS.keys()), 1)
+
+        selected_tiles = equal_sign + numbers + operators
+
+        self.ai_pieces = []
+        for tile in selected_tiles:
+            piece = {
+                "tile": tile,
+                "points": self.TILE_NUMBER_POINTS.get(tile) or self.TILE_OPERATOR_POINTS.get(tile) or self.TILE_EQUAL_POINTS.get(tile) or 0,
+                "rect": pygame.Rect(0, 0, self.TILE_SIZE, self.TILE_SIZE)
+            }
+            self.ai_pieces.append(piece)
+            if tile in self.TILE_PCS:
+                self.TILE_PCS[tile] -= 1
+
+    def place_tile(self, tile, position):
+        # Place the tile on the board at the specified position
+        row, col = position
+        self.curr_game_board[row][col] = tile
+
+    def evaluate_position(self, position, tile):
+        '''
+            Evaluate the score of placing the tile at the position
+
+            if len adjacent tile is 1:
+                if adjacent tile is number:
+                    any piece can be placed on that position so +1 score
+                    example: 
+                        1[1] or 1[+] or 1[=] are valid
+
+                if adjacent tile is operator:
+                    only number pieces can be placed so +3 score
+                    example:
+                        +[1] is valid
+                        +[+] and +[=] are not valid
+
+                if adjacent tile is equal:
+                    only number pieces can be placed so +2 score
+                    example:
+                        =[1] is valid
+                        =[+] and =[=] are not valid
+            
+            elif len adjacent tile is 2:
+                if adjacent tile are both number:
+                    operator or equal pieces can be placed +2 score
+                    example:
+                        adjacent left and right:
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '1', '[+]', '1', '', 
+                                '', ' ', '   ', ' ', '',
+                            ]
+                            or
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '1', '[=]', '1', '', 
+                                '', ' ', '   ', ' ', '',
+                            ]
+
+                        adjacent top and bottom:
+                            [
+                                '', '', '   ', '', '', 
+                                '', '', ' 1 ', '', '', 
+                                '', '', '[+]', '', '', 
+                                '', '', ' 1 ', '', '', 
+                                '', '', '   ', '', '', 
+                            ]
+                            or
+                            [
+                                '', '', '   ', '', '', 
+                                '', '', ' 1 ', '', '', 
+                                '', '', '[=]', '', '', 
+                                '', '', ' 1 ', '', '', 
+                                '', '', '   ', '', '', 
+                            ]
+
+                if adjacent tile both operator:
+                    only number pieces can be placed +3 score
+                    example:
+                        adjacent left and right:
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '+', '[1]', '-', '', 
+                                '', ' ', '   ', ' ', '',
+                            ] is valid
+                            
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '+', '[x]', '-', '', 
+                                '', ' ', '   ', ' ', '',
+                            ] and 
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '+', '[=]', '-', '', 
+                                '', ' ', '   ', ' ', '',
+                            ] are not valid
+
+                        adjacent top and bottom:
+                            [
+                                '', '', '   ', '', '', 
+                                '', '', ' + ', '', '', 
+                                '', '', '[1]', '', '', 
+                                '', '', ' - ', '', '', 
+                                '', '', '   ', '', '', 
+                            ] is valid
+                            
+                            [
+                                '', '', '   ', '', '', 
+                                '', '', ' + ', '', '', 
+                                '', '', '[x]', '', '', 
+                                '', '', ' - ', '', '', 
+                                '', '', '   ', '', '', 
+                            ] and
+                            [
+                                '', '', '   ', '', '', 
+                                '', '', ' + ', '', '', 
+                                '', '', '[=]', '', '', 
+                                '', '', ' - ', '', '', 
+                                '', '', '   ', '', '', 
+                            ] are not valid
+
+                if adjacent tile both equal:
+                    example: =1=1 ??? is that valid?
+                                1=1=1 possible but..
+                                to be safe lets set the score to 0 HAHAHAHA
+                
+                if adjacent tile [1] is number and [2] is operator or vice versa:
+                    only number can be placed
+                    example:
+                        adjacent left and right:
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '1', '[1]', '-', '', 
+                                '', ' ', '   ', ' ', '',
+                            ] is valid
+                            
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '1', '[x]', '-', '', 
+                                '', ' ', '   ', ' ', '',
+                            ] and 
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '1', '[=]', '-', '', 
+                                '', ' ', '   ', ' ', '',
+                            ] are not valid
+
+                        adjacent top and bottom:
+                            [
+                                '', '', '   ', '', '', 
+                                '', '', ' 1 ', '', '', 
+                                '', '', '[1]', '', '', 
+                                '', '', ' - ', '', '', 
+                                '', '', '   ', '', '', 
+                            ] is valid
+                            
+                            [
+                                '', '', '   ', '', '', 
+                                '', '', ' 1 ', '', '', 
+                                '', '', '[x]', '', '', 
+                                '', '', ' - ', '', '', 
+                                '', '', '   ', '', '', 
+                            ] and
+                            [
+                                '', '', '   ', '', '', 
+                                '', '', ' 1 ', '', '', 
+                                '', '', '[=]', '', '', 
+                                '', '', ' - ', '', '', 
+                                '', '', '   ', '', '', 
+                            ] are not valid
+                
+                if adjacent tile [1] is number and [2] is equal or vice versa
+                    OR 
+                if adjacent tile [1] is operator and [2] is equal or vice versa:
+                    no pieces can be placed score = 0
+                    example:
+                        adjacent left and right:
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '1', '[1]', '=', '', 
+                                '', ' ', '   ', ' ', '',
+                            ] not valid
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '1', '[x]', '=', '', 
+                                '', ' ', '   ', ' ', '',
+                            ] not valid 
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '1', '[=]', '-', '', 
+                                '', ' ', '   ', ' ', '',
+                            ] not valid
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '+', '[1]', '=', '', 
+                                '', ' ', '   ', ' ', '',
+                            ] not valid
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '+', '[x]', '=', '', 
+                                '', ' ', '   ', ' ', '',
+                            ] not valid 
+                            [
+                                '', ' ', '   ', ' ', '',
+                                '', '+', '[=]', '-', '', 
+                                '', ' ', '   ', ' ', '',
+                            ] not valid
+
+                        adjacent top and bottom:
+                            [
+                                '', '', '   ', '', '', 
+                                '', '', ' 1 ', '', '', 
+                                '', '', '[1]', '', '', 
+                                '', '', ' = ', '', '', 
+                                '', '', '   ', '', '', 
+                            ] not valid
+                            
+                            [
+                                '', '', '   ', '', '', 
+                                '', '', ' 1 ', '', '', 
+                                '', '', '[x]', '', '', 
+                                '', '', ' - ', '', '', 
+                                '', '', '   ', '', '', 
+                            ] and
+                            [
+                                '', '', '   ', '', '', 
+                                '', '', ' 1 ', '', '', 
+                                '', '', '[=]', '', '', 
+                                '', '', ' - ', '', '', 
+                                '', '', '   ', '', '', 
+                            ] are not valid
+        '''
+        return 1  # Placeholder, implement your scoring logic
 
     def load_assets(self):
         self.assets_dir = os.path.join("assets")
