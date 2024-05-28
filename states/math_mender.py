@@ -285,11 +285,14 @@ class MathMender():
         elif self.curr_game_board[row][col] is not None:
             if mode == "remove_tile":
                 for piece in self.curr_equation:
-                    if piece == self.curr_game_board[row][col]:
-                        self.player_pieces.append(piece)
-                        self.curr_equation.remove(piece)
+                    print(f"\n>>piece: {piece}")
+                    print(f"\n>>self.game_board[row][col]: {self.game_board[row][col]}")
+                    if piece != self.game_board[row][col]:
+                        if piece == self.curr_game_board[row][col]:
+                            self.player_pieces.append(piece)
+                            self.curr_equation.remove(piece)
 
-                self.curr_game_board[row][col] = None
+                            self.curr_game_board[row][col] = None
 
         else:
             print("Clicked outside the board")
