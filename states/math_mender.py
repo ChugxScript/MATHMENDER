@@ -75,7 +75,7 @@ class MathMender():
         # board details
         self.TILE_SIZE = 39
         self.TILE_MARGIN = 3
-        self.FONT_SIZE = 15
+        self.FONT_SIZE = 17
         self.FONT_COLOR = self.BLACK
 
         # tile details
@@ -283,11 +283,8 @@ class MathMender():
 
                         self.curr_game_board[row][col] = placed_tile
                         self.curr_equation.append(placed_tile)
-                        # Print the current equation without problematic characters
                         print(f"\n>>self.curr_equation: {[piece['tile'] for piece in self.curr_equation if piece['tile'] not in ['√']]}")
-                        # Remove the tile from player pieces
                         self.player_pieces.remove(self.clicked_tile)
-                        # Reset expanded_tile
                         self.clicked_tile = None
 
         elif self.curr_game_board[row][col] is not None:
@@ -368,8 +365,10 @@ class MathMender():
         pygame.draw.rect(tile_surface, self.BLACK, (0, 0, self.TILE_SIZE, self.TILE_SIZE), 1)
 
         # Render the text
-        text_surface = self.FONT.render(tile, True, self.BLACK)
-        text_rect = text_surface.get_rect(center=(self.TILE_SIZE // 2, self.TILE_SIZE // 2))
+        large_font_size = self.FONT_SIZE + 3
+        large_font = pygame.font.Font(None, large_font_size)
+        text_surface = large_font.render(tile, True, self.BLACK)
+        text_rect = text_surface.get_rect(center=(self.TILE_SIZE // 2, self.TILE_SIZE // 2.3))
         tile_surface.blit(text_surface, text_rect)
 
         # Render the value in smaller font at the lower right corner
