@@ -572,6 +572,8 @@ class MathMender():
                     col_eq_arr = []
                     while move_idx < 15:
                         move_col = start_idx + move_idx
+                        print(f">>move_col: {move_col}")
+                        print(f">>stay_row: {stay_row}")
                         if self.curr_game_board[stay_row][move_col] is not None:
                             col_eq_arr.append(self.curr_game_board[stay_row][move_col])
                             horizontal_str += self.curr_game_board[stay_row][move_col]['tile']
@@ -601,21 +603,22 @@ class MathMender():
                         
                         for ttt in temp_col_arr:
                             if len(ttt) > 1:
-                                print(f">>1 ttt: {ttt}")
-                                if self.is_valid_chain_equation(ttt):
-                                    print(f">>2 horizontal_str: {horizontal_str}")
-                                    print(f">>2 ttt: {ttt}")
-                                    if horizontal_str == ttt:
-                                        break
-                                else:
-                                    for piece in self.curr_equation:
-                                        self.curr_game_board[piece["row"]][piece["col"]] = None
-                                        self.player_pieces.append(piece)
-                                    self.curr_equation.clear()
+                                if horizontal_str in ttt:
+                                    print(f">>1 ttt: {ttt}")
+                                    if self.is_valid_chain_equation(ttt):
+                                        print(f">>2 horizontal_str: {horizontal_str}")
+                                        print(f">>2 ttt: {ttt}")
+                                        if horizontal_str == ttt:
+                                            break
+                                    else:
+                                        for piece in self.curr_equation:
+                                            self.curr_game_board[piece["row"]][piece["col"]] = None
+                                            self.player_pieces.append(piece)
+                                        self.curr_equation.clear()
 
-                                    print(f"\n>>[ERROR] INVALID EQUATION")
-                                    self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
-                                    return False 
+                                        print(f"\n>>[ERROR] INVALID EQUATION")
+                                        self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
+                                        return False 
 
                         hoz_point = 0
                         all_tiles = set(self.BLUE_TILES) | set(self.GREEN_TILES) | set(self.YELLOW_TILES) | set(self.RED_TILES)
@@ -736,20 +739,21 @@ class MathMender():
                         for ttt in temp_row_arr:
                             if len(ttt) > 1:
                                 print(f">>1 ttt: {ttt}")
-                                if self.is_valid_chain_equation(ttt):
-                                    print(f">>2 vertical_str: {vertical_str}")
-                                    print(f">>2 ttt: {ttt}")
-                                    if vertical_str == ttt:
-                                        break
-                                else:
-                                    for piece in self.curr_equation:
-                                        self.curr_game_board[piece["row"]][piece["col"]] = None
-                                        self.player_pieces.append(piece)
-                                    self.curr_equation.clear()
+                                if vertical_str in ttt:
+                                    if self.is_valid_chain_equation(ttt):
+                                        print(f">>2 vertical_str: {vertical_str}")
+                                        print(f">>2 ttt: {ttt}")
+                                        if vertical_str == ttt:
+                                            break
+                                    else:
+                                        for piece in self.curr_equation:
+                                            self.curr_game_board[piece["row"]][piece["col"]] = None
+                                            self.player_pieces.append(piece)
+                                        self.curr_equation.clear()
 
-                                    print(f"\n>>[ERROR] INVALID EQUATION")
-                                    self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
-                                    return False 
+                                        print(f"\n>>[ERROR] INVALID EQUATION")
+                                        self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
+                                        return False 
 
                         ver_point = 0
                         all_tiles = set(self.BLUE_TILES) | set(self.GREEN_TILES) | set(self.YELLOW_TILES) | set(self.RED_TILES)
@@ -1046,8 +1050,8 @@ class MathMender():
                     print(f">>ant_best_equation['tile_used']: {ant_best_equation['tile_used']}")
                     print(f">>tile: {tile}")
                     if tile in ant_best_equation['tile_used']:
-                        for ai_piece in self.ai_pieces:
-                            if self.curr_game_board[c_row][c_col] is None:
+                        if self.curr_game_board[c_row][c_col] is None:
+                            for ai_piece in self.ai_pieces:
                                 print(f">>1 self.curr_game_board[c_row][c_col]: {self.curr_game_board[c_row][c_col]}")
                                 print(f">>ai_piece: {ai_piece}")
                                 print(f">>ai_piece['tile']: {ai_piece['tile']}")
@@ -1074,8 +1078,8 @@ class MathMender():
                     print(f">>ant_best_equation['tile_used']: {ant_best_equation['tile_used']}")
                     print(f">>tile: {tile}")
                     if tile in ant_best_equation['tile_used']:
-                        for ai_piece in self.ai_pieces:
-                            if self.curr_game_board[c_row][c_col] is None:
+                        if self.curr_game_board[c_row][c_col] is None:
+                            for ai_piece in self.ai_pieces:
                                 print(f">>1 self.curr_game_board[c_row][c_col]: {self.curr_game_board[c_row][c_col]}")
                                 print(f">>ai_piece: {ai_piece}")
                                 print(f">>ai_piece['tile']: {ai_piece['tile']}")
