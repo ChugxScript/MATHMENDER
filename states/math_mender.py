@@ -570,8 +570,10 @@ class MathMender():
                     
                     move_idx = 0
                     col_eq_arr = []
-                    while start_idx < 15:
+                    while move_idx < 15:
                         move_col = start_idx + move_idx
+                        print(f">>move_col: {move_col}")
+                        print(f">>stay_row: {stay_row}")
                         if self.curr_game_board[stay_row][move_col] is not None:
                             col_eq_arr.append(self.curr_game_board[stay_row][move_col])
                             horizontal_str += self.curr_game_board[stay_row][move_col]['tile']
@@ -601,21 +603,22 @@ class MathMender():
                         
                         for ttt in temp_col_arr:
                             if len(ttt) > 1:
-                                print(f">>1 ttt: {ttt}")
-                                if self.is_valid_chain_equation(ttt):
-                                    print(f">>2 horizontal_str: {horizontal_str}")
-                                    print(f">>2 ttt: {ttt}")
-                                    if horizontal_str == ttt:
-                                        break
-                                else:
-                                    for piece in self.curr_equation:
-                                        self.curr_game_board[piece["row"]][piece["col"]] = None
-                                        self.player_pieces.append(piece)
-                                    self.curr_equation.clear()
+                                if horizontal_str in ttt:
+                                    print(f">>1 ttt: {ttt}")
+                                    if self.is_valid_chain_equation(ttt):
+                                        print(f">>2 horizontal_str: {horizontal_str}")
+                                        print(f">>2 ttt: {ttt}")
+                                        if horizontal_str == ttt:
+                                            break
+                                    else:
+                                        for piece in self.curr_equation:
+                                            self.curr_game_board[piece["row"]][piece["col"]] = None
+                                            self.player_pieces.append(piece)
+                                        self.curr_equation.clear()
 
-                                    print(f"\n>>[ERROR] INVALID EQUATION")
-                                    self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
-                                    return False 
+                                        print(f"\n>>[ERROR] INVALID EQUATION")
+                                        self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
+                                        return False 
 
                         hoz_point = 0
                         all_tiles = set(self.BLUE_TILES) | set(self.GREEN_TILES) | set(self.YELLOW_TILES) | set(self.RED_TILES)
@@ -704,7 +707,7 @@ class MathMender():
                     
                     move_idx = 0
                     row_eq_arr = []
-                    while start_idx < 15:
+                    while move_idx < 15:
                         move_row = start_idx + move_idx
                         if self.curr_game_board[move_row][stay_col] is not None:
                             row_eq_arr.append(self.curr_game_board[move_row][stay_col])
@@ -736,20 +739,21 @@ class MathMender():
                         for ttt in temp_row_arr:
                             if len(ttt) > 1:
                                 print(f">>1 ttt: {ttt}")
-                                if self.is_valid_chain_equation(ttt):
-                                    print(f">>2 vertical_str: {vertical_str}")
-                                    print(f">>2 ttt: {ttt}")
-                                    if vertical_str == ttt:
-                                        break
-                                else:
-                                    for piece in self.curr_equation:
-                                        self.curr_game_board[piece["row"]][piece["col"]] = None
-                                        self.player_pieces.append(piece)
-                                    self.curr_equation.clear()
+                                if vertical_str in ttt:
+                                    if self.is_valid_chain_equation(ttt):
+                                        print(f">>2 vertical_str: {vertical_str}")
+                                        print(f">>2 ttt: {ttt}")
+                                        if vertical_str == ttt:
+                                            break
+                                    else:
+                                        for piece in self.curr_equation:
+                                            self.curr_game_board[piece["row"]][piece["col"]] = None
+                                            self.player_pieces.append(piece)
+                                        self.curr_equation.clear()
 
-                                    print(f"\n>>[ERROR] INVALID EQUATION")
-                                    self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
-                                    return False 
+                                        print(f"\n>>[ERROR] INVALID EQUATION")
+                                        self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
+                                        return False 
 
                         ver_point = 0
                         all_tiles = set(self.BLUE_TILES) | set(self.GREEN_TILES) | set(self.YELLOW_TILES) | set(self.RED_TILES)
@@ -814,187 +818,6 @@ class MathMender():
                     self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
                     return False
 
-                        
-
-
-
-                # curr_row = []
-                # curr_col = []
-                # print(f"\n>>self.curr_game_board: ")
-                # for tile in self.curr_game_board:
-                #     print(tile)
-                
-                # print(f"\n>>self.curr_equation: ")
-                # for tile in self.curr_equation:
-                #     print(tile)
-                #     curr_row.append(tile["row"])
-                #     curr_col.append(tile["col"])
-
-                # print(f"\n>>curr_row: {curr_row}")
-                # print(f">>curr_col: {curr_col}")
-
-                # '''
-                #     check the equation horizontal and vertical
-
-                #     check curr_row if all are the same
-                #         meaning the user is making equation horizontally
-
-                #         we will also check previous rows to check
-                #         if the user continue a previous equation
-                # '''
-
-                # prev_equation = ""
-                # curr_equation = ""
-                # curr_equation_points = 0
-                # has_blank = False
-                # is_2N = False # BLUE
-                # is_3N = False # GREEN
-                # is_2A = False # YELLOW
-                # is_3A= False # RED
-
-                # # Check if there is a blank tile in the equation
-                # has_blank = any(tile["tile"] == "blank" for tile in self.curr_equation)
-                # all_tiles = set(self.BLUE_TILES) | set(self.GREEN_TILES) | set(self.YELLOW_TILES) | set(self.RED_TILES)
-
-                # if not has_blank:
-                #     if all(x == curr_row[0] for x in curr_row):
-                #         print(f"\n>>curr_row: {curr_row}")
-                #         for col_a in range(15):
-                #             if self.curr_game_board[curr_row[0]][col_a] is not None:
-                #                 curr_equation += self.curr_game_board[curr_row[0]][col_a]['tile']
-                #                 # curr_equation_points += self.curr_game_board[curr_row[0]][col_a]['points']
-
-                #                 # check if tile in power ups
-                #                 if (curr_row[0], col_a) in self.BLUE_TILES:
-                #                     # the point of the tile that land on 2N tile will multiplied by 2
-                #                     is_2N = True
-                #                     curr_equation_points += (int(self.curr_game_board[curr_row[0]][col_a]['points']) * 2)
-
-                #                 if (curr_row[0], col_a) in self.GREEN_TILES:
-                #                     # the point of the tile that land on 3N tile will multiplied by 3
-                #                     is_3N = True
-                #                     curr_equation_points += (int(self.curr_game_board[curr_row[0]][col_a]['points']) * 3)
-
-                #                 if (curr_row[0], col_a) in self.YELLOW_TILES:
-                #                     is_2A = True
-                #                     curr_equation_points += int(self.curr_game_board[curr_row[0]][col_a]['points'])
-
-                #                 if (curr_row[0], col_a) in self.RED_TILES:
-                #                     is_3A = True
-                #                     curr_equation_points += int(self.curr_game_board[curr_row[0]][col_a]['points'])
-                                
-                #                 if (curr_row[0], col_a) not in all_tiles:
-                #                     curr_equation_points += int(self.curr_game_board[curr_row[0]][col_a]['points'])
-
-                #             if self.game_board[curr_row[0]][col_a] is not None:
-                #                 prev_equation += self.game_board[curr_row[0]][col_a]['tile']
-                            
-                #     elif all(x == curr_col[0] for x in curr_col):
-                #         print(f"\n>>curr_col: {curr_col}")
-                #         for row_a in range(15):
-                #             if self.curr_game_board[row_a][curr_col[0]] is not None:
-                #                 curr_equation += self.curr_game_board[row_a][curr_col[0]]['tile']
-                #                 # curr_equation_points += self.curr_game_board[row_a][curr_col[0]]['points']
-
-                #                 if (row_a, curr_col[0]) in self.BLUE_TILES:
-                #                     is_2N = True
-                #                     curr_equation_points += (int(self.curr_game_board[row_a][curr_col[0]]['points']) * 2)
-
-                #                 if (row_a, curr_col[0]) in self.GREEN_TILES:
-                #                     is_3N = True
-                #                     curr_equation_points += (int(self.curr_game_board[row_a][curr_col[0]]['points']) * 3)
-
-                #                 if (row_a, curr_col[0]) in self.YELLOW_TILES:
-                #                     is_2A = True
-                #                     curr_equation_points += int(self.curr_game_board[row_a][curr_col[0]]['points'])
-
-                #                 if (row_a, curr_col[0]) in self.RED_TILES:
-                #                     is_3A = True
-                #                     curr_equation_points += int(self.curr_game_board[row_a][curr_col[0]]['points'])
-
-                #                 if (row_a, curr_col[0]) not in all_tiles:
-                #                     curr_equation_points += int(self.curr_game_board[row_a][curr_col[0]]['points'])
-
-                #             if self.game_board[row_a][curr_col[0]] is not None:
-                #                 prev_equation += self.game_board[row_a][curr_col[0]]['tile']
-
-                # else:
-                #     for tile in self.curr_equation:
-                #         if tile['tile'] != 'blank':
-                #             curr_equation += tile['tile']
-
-                # print(f"\n>>prev_equation: {prev_equation}")
-                # print(f">>curr_equation: {curr_equation}")
-                # print(f">>curr_equation_points: {curr_equation_points}")
-
-                # lhs, rhs = self.convert_operators(curr_equation)
-                # if lhs is not None and rhs is not None:
-                #     evaluated_lhs = eval(lhs)
-                #     evaluated_rhs = eval(rhs)
-                #     is_correct = evaluated_lhs == evaluated_rhs
-                #     print(f">>is_correct: {is_correct}")
-                #     print(f">>evaluated_lhs: {evaluated_lhs}")
-
-                #     if is_correct:
-                #         if self.PLAYER_TURN:
-                #             if is_2A:
-                #                 # the answer of the equation will multiply by 2 plus the points of each tiles
-                #                 self.PLAYER_SCORE += (int(evaluated_lhs) * 2) + curr_equation_points
-                #             if is_3A:
-                #                 # the answer of the equation will multiply by 3 plus the points of each tiles
-                #                 self.PLAYER_SCORE += (int(evaluated_lhs) * 3) + curr_equation_points
-                            
-                #             if is_2N or is_3N:
-                #                 # already added in checking of power ups
-                #                 self.PLAYER_SCORE += curr_equation_points
-                            
-                #             if not is_2N and not is_3N and not is_2A and not is_3A:
-                #                 self.PLAYER_SCORE += curr_equation_points
-                        
-                #         if self.AI_TURN:
-                #             if is_2A:
-                #                 # the answer of the equation will multiply by 2 plus the points of each tiles
-                #                 self.AI_SCORE += (evaluated_lhs * 2) + curr_equation_points
-                #             if is_3A:
-                #                 # the answer of the equation will multiply by 3 plus the points of each tiles
-                #                 self.AI_SCORE += (evaluated_lhs * 3) + curr_equation_points
-                            
-                #             if is_2N or is_3N:
-                #                 # already added in checking of power ups
-                #                 self.AI_SCORE += curr_equation_points
-                            
-                #             if not is_2N and not is_3N and not is_2A and not is_3A:
-                #                 self.AI_SCORE += curr_equation_points
-                        
-                #         self.draw_total_points()
-                #         self.draw_new_random_tiles()
-                #         '''
-                #             copy the curr_game_board content to the game_board
-                #         '''
-                #         for row in range(15):
-                #             for col in range(15):
-                #                 self.game_board[row][col] = self.curr_game_board[row][col]
-
-                #         self.curr_equation.clear()
-                #         return True
-                #     else:
-                #         for piece in self.curr_equation:
-                #             self.curr_game_board[piece["row"]][piece["col"]] = None
-                #             self.player_pieces.append(piece)
-                #         self.curr_equation.clear()
-
-                #         print(f"\n>>[ERROR] INVALID EQUATION")
-                #         self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
-                #         return False
-                # else:
-                #     for piece in self.curr_equation:
-                #         self.curr_game_board[piece["row"]][piece["col"]] = None
-                #         self.player_pieces.append(piece)
-                #     self.curr_equation.clear()
-
-                #     print(f"\n>>[ERROR] INVALID EQUATION")
-                #     self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
-                #     return False
             else:
                 for piece in self.curr_equation:
                     self.curr_game_board[piece["row"]][piece["col"]] = None
@@ -1227,8 +1050,8 @@ class MathMender():
                     print(f">>ant_best_equation['tile_used']: {ant_best_equation['tile_used']}")
                     print(f">>tile: {tile}")
                     if tile in ant_best_equation['tile_used']:
-                        for ai_piece in self.ai_pieces:
-                            if self.curr_game_board[c_row][c_col] is None:
+                        if self.curr_game_board[c_row][c_col] is None:
+                            for ai_piece in self.ai_pieces:
                                 print(f">>1 self.curr_game_board[c_row][c_col]: {self.curr_game_board[c_row][c_col]}")
                                 print(f">>ai_piece: {ai_piece}")
                                 print(f">>ai_piece['tile']: {ai_piece['tile']}")
@@ -1255,8 +1078,8 @@ class MathMender():
                     print(f">>ant_best_equation['tile_used']: {ant_best_equation['tile_used']}")
                     print(f">>tile: {tile}")
                     if tile in ant_best_equation['tile_used']:
-                        for ai_piece in self.ai_pieces:
-                            if self.curr_game_board[c_row][c_col] is None:
+                        if self.curr_game_board[c_row][c_col] is None:
+                            for ai_piece in self.ai_pieces:
                                 print(f">>1 self.curr_game_board[c_row][c_col]: {self.curr_game_board[c_row][c_col]}")
                                 print(f">>ai_piece: {ai_piece}")
                                 print(f">>ai_piece['tile']: {ai_piece['tile']}")
@@ -1476,11 +1299,53 @@ class MathMender():
                                         
                                                 if is_valid_gen_eq:
                                                     # get equation score
-                                                    temp_eq_array = list(temp_eq)
+                                                    temp_parts = temp_eq.split('=')
+                                                    temp_part_a = temp_parts[0]
+                                                    conversion_dict = {
+                                                        '^2': '**2',
+                                                        'x': '*',
+                                                        '÷': '/',
+                                                    }
+                                                    for op, replacement in conversion_dict.items():
+                                                        temp_part_a = temp_part_a.replace(op, replacement)
+                                                    temp_part_result = eval(temp_part_a)
+
+                                                    all_tiles = set(self.BLUE_TILES) | set(self.GREEN_TILES) | set(self.YELLOW_TILES) | set(self.RED_TILES)
                                                     eq_score = 0
+                                                    if self.curr_idx == 'horizontal':
+                                                        if (rc_idx, start_idx) in self.YELLOW_TILES:
+                                                            eq_score += int(temp_part_result) * 2
+                                                        if (rc_idx, start_idx) in self.RED_TILES:
+                                                            eq_score += int(temp_part_result) * 3
+
+                                                    elif self.curr_idx == 'vertical':
+                                                        if (start_idx, rc_idx) in self.YELLOW_TILES:
+                                                            eq_score += int(temp_part_result) * 2
+                                                        if (start_idx, rc_idx) in self.RED_TILES:
+                                                            eq_score += int(temp_part_result) * 3
+                                                    
+                                                    temp_eq_array = list(temp_eq)
                                                     for t_arr in temp_eq_array:
                                                         if t_arr in self.TILE_NUMBER_POINTS or self.TILE_OPERATOR_POINTS or self.TILE_EQUAL_POINTS:
-                                                            eq_score += self.TILE_NUMBER_POINTS.get(t_arr) or self.TILE_OPERATOR_POINTS.get(t_arr) or self.TILE_EQUAL_POINTS.get(t_arr)
+                                                            tile_point = self.TILE_NUMBER_POINTS.get(t_arr) or self.TILE_OPERATOR_POINTS.get(t_arr) or self.TILE_EQUAL_POINTS.get(t_arr)
+                                                            
+                                                            if self.curr_idx == 'horizontal':
+                                                                if (rc_idx, start_idx) in self.BLUE_TILES:
+                                                                    eq_score += int(tile_point) * 2
+                                                                if (rc_idx, start_idx) in self.GREEN_TILES:
+                                                                    eq_score += int(tile_point) * 3
+
+                                                                if (rc_idx, start_idx) not in all_tiles:
+                                                                    eq_score += int(tile_point)
+
+                                                            elif self.curr_idx == 'vertical':
+                                                                if (start_idx, rc_idx) in self.BLUE_TILES:
+                                                                    eq_score += int(tile_point) * 2
+                                                                if (start_idx, rc_idx) in self.GREEN_TILES:
+                                                                    eq_score += int(tile_point) * 3
+                                                                
+                                                                if (start_idx, rc_idx) not in all_tiles:
+                                                                    eq_score += int(tile_point)
                                                     
                                                     print(f">>eq_score: {eq_score}")
                                                     temp_vEQ = {}
