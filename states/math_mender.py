@@ -570,7 +570,7 @@ class MathMender():
                     
                     move_idx = 0
                     col_eq_arr = []
-                    while start_idx < 15:
+                    while move_idx < 15:
                         move_col = start_idx + move_idx
                         if self.curr_game_board[stay_row][move_col] is not None:
                             col_eq_arr.append(self.curr_game_board[stay_row][move_col])
@@ -704,7 +704,7 @@ class MathMender():
                     
                     move_idx = 0
                     row_eq_arr = []
-                    while start_idx < 15:
+                    while move_idx < 15:
                         move_row = start_idx + move_idx
                         if self.curr_game_board[move_row][stay_col] is not None:
                             row_eq_arr.append(self.curr_game_board[move_row][stay_col])
