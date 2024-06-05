@@ -6,14 +6,6 @@ import numpy as np
 import itertools
 import re
 
-# from states.ACO import AntColonyOptimization
-
-### remove after dev
-from game_state_manager import GameStateManager
-from ACO import AntColonyOptimization
-###
-
-
 class MathMender():
     def __init__(self, display, gameStateManager):
         pygame.init()
@@ -100,10 +92,15 @@ class MathMender():
             '^2': 2, '=': 20, 
         }
 
-        # click click haha
+        # click click 
         self.clicked_tile = None
         self.curr_equation = []
         self.valid_tiles = [(7,7)]
+
+        # timer
+        self.total_seconds = 5 * 60  # 5 minutes in seconds
+        self.timer_clock = pygame.time.Clock()
+        self.start_ticks = pygame.time.get_ticks()
 
         # players details
         self.PLAYER_TURN = True
@@ -120,7 +117,6 @@ class MathMender():
         self.load_assets()
         self.draw_bg()
         self.init_board()
-        self.draw_pieces_pcs()
         self.get_player_pieces()
         self.get_ai_pieces()
 
@@ -136,7 +132,13 @@ class MathMender():
                         if event.button == 1:
                             mouse_x, mouse_y = pygame.mouse.get_pos()
                             for piece in self.player_pieces:
-                                if piece["rect"].collidepoint(mouse_x, mouse_y):
+                                scaled_rect = pygame.Rect(
+                                    piece["rect"].x,
+                                    piece["rect"].y,
+                                    90,
+                                    90
+                                )
+                                if scaled_rect.collidepoint(mouse_x, mouse_y):
                                     self.toggle_expand_tile(piece)
                                     break
 
@@ -177,6 +179,7 @@ class MathMender():
                             self.handle_clicked_board_xy(pygame.mouse.get_pos(), "add_tile")
                         if event.button == 3:
                             self.handle_clicked_board_xy(pygame.mouse.get_pos(), "remove_tile")
+                            
             
             if self.AI_TURN:
                 self.ai_make_move()
@@ -184,13 +187,14 @@ class MathMender():
             self.display.blit(self.math_mender_bg, (0, 0))
             self.init_board()
             self.draw_updated_board()
-            self.draw_pieces_pcs()
             self.draw_player_pieces()
             self.draw_player_pieces_with_click()
             self.draw_rect_btn()
             self.draw_total_points()
             self.valid_tiles = self.valid_tiles_to_drop()
             self.draw_valid_tiles()
+            self.update_player_pieces_positions()
+            self.start_timer()
             pygame.display.flip()
             self.clock.tick(self.FPS)
     
@@ -225,7 +229,7 @@ class MathMender():
                     font_text = 'START'
                     self.game_board_details[row][col] = 'START'
 
-                x = (col + 13) * (self.TILE_SIZE + self.TILE_MARGIN)
+                x = (col + 12.9) * (self.TILE_SIZE + self.TILE_MARGIN)
                 y = (row + 0.3) * (self.TILE_SIZE + self.TILE_MARGIN)
 
                 pygame.draw.rect(self.display, tile_color, (x, y, self.TILE_SIZE, self.TILE_SIZE))
@@ -241,14 +245,14 @@ class MathMender():
             for col in range(15):
                 piece = self.curr_game_board[row][col]
                 if piece:
-                    x = (col + 13) * (self.TILE_SIZE + self.TILE_MARGIN)
+                    x = (col + 12.9) * (self.TILE_SIZE + self.TILE_MARGIN)
                     y = (row + 0.3) * (self.TILE_SIZE + self.TILE_MARGIN)
 
-                    self.draw_tile(piece["tile"], piece["points"], x, y, self.CORAL)
+                    self.draw_tile_board(piece["tile"], piece["points"], x, y, self.CORAL)
 
     def handle_clicked_board_xy(self, pos, mode):
         x, y = pos
-        col = int((x - 13 * (self.TILE_SIZE + self.TILE_MARGIN)) // (self.TILE_SIZE + self.TILE_MARGIN))
+        col = int((x - 12.9 * (self.TILE_SIZE + self.TILE_MARGIN)) // (self.TILE_SIZE + self.TILE_MARGIN))
         row = int((y - 0.3 * (self.TILE_SIZE + self.TILE_MARGIN)) // (self.TILE_SIZE + self.TILE_MARGIN))
         
         # print(f"\n>>self.valid_tiles: {self.valid_tiles}")
@@ -272,6 +276,7 @@ class MathMender():
                                     placed_tile["tile"] = str(int(placed_tile["tile"]))
                         
                         # Store the row and col in the placed tile
+                        placed_tile["rect"] = pygame.Rect(0, 0, self.TILE_SIZE, self.TILE_SIZE)
                         placed_tile["row"] = row
                         placed_tile["col"] = col
 
@@ -296,31 +301,6 @@ class MathMender():
         else:
             print("Clicked outside the board")
 
-    def draw_pieces_pcs(self):
-        x_offsets = [40, 110, 170, 230]
-        y_offset = 190
-        line_spacing = 20
-
-        def draw_text(text, x, y):
-            self.FONT_PCS = pygame.font.Font(None, 20)
-            text_surface = self.FONT_PCS.render(text, True, self.WHITE)
-            self.display.blit(text_surface, (x, y))
-
-        def draw_column(items, x_offset, y_offset):
-            y = y_offset
-            for key, value in items:
-                draw_text(f"[ {key} ]: {value}", x_offset, y)
-                y += line_spacing
-        
-        # Prepare items to display in columns
-        items = list(self.TILE_PCS.items())
-        quarter = (len(items) + 3) // 4
-        columns = [items[i * quarter:(i + 1) * quarter] for i in range(4)]
-
-        # Draw each column
-        for i, column in enumerate(columns):
-            draw_column(column, x_offsets[i], y_offset)
-
     def get_player_pieces(self):
         operators = random.sample(list(self.TILE_OPERATOR_POINTS.keys()), 2)
         numbers = random.sample(list(self.TILE_NUMBER_POINTS.keys()), 6)
@@ -342,17 +322,45 @@ class MathMender():
         self.update_player_pieces_positions()
 
     def update_player_pieces_positions(self):
-        x_offset = 40
-        y_offset = 390
+        x_offset = 110
+        y_offset = 240
+        tiles_per_row = 3
+        spacing = 70
+
         for i, piece in enumerate(self.player_pieces):
-            piece["rect"].x = x_offset + i * (self.TILE_SIZE + 10)
-            piece["rect"].y = y_offset
+            row = i // tiles_per_row
+            col = i % tiles_per_row
+            piece["rect"].x = x_offset + col * (self.TILE_SIZE + spacing)
+            piece["rect"].y = y_offset + row * (self.TILE_SIZE + 60)
 
     def draw_player_pieces(self):
         for piece in self.player_pieces:
             self.draw_tile(piece["tile"], piece["points"], piece["rect"].x, piece["rect"].y, self.CORAL)
 
     def draw_tile(self, tile, points, x, y, curr_color):
+        custom_size = 90
+        tile_surface = pygame.Surface((custom_size, custom_size))
+        tile_surface.fill(curr_color)
+        pygame.draw.rect(tile_surface, self.CORAL, (2, 2, custom_size - 4, custom_size - 4))
+        pygame.draw.rect(tile_surface, self.BLACK, (0, 0, custom_size, custom_size), 1)
+
+        # Render the text
+        large_font_size = 35
+        large_font = pygame.font.Font(None, large_font_size)
+        text_surface = large_font.render(tile, True, self.BLACK)
+        text_rect = text_surface.get_rect(center=(custom_size // 2, custom_size // 2.3))
+        tile_surface.blit(text_surface, text_rect)
+
+        # Render the value in smaller font at the lower right corner
+        small_font = pygame.font.Font(None, 30)
+        value_surface = small_font.render(str(points), True, self.RED)
+        value_rect = value_surface.get_rect(bottomright=(custom_size - 5, custom_size - 5))
+        tile_surface.blit(value_surface, value_rect)
+
+        # Blit the tile surface onto the display
+        self.display.blit(tile_surface, (x, y))
+
+    def draw_tile_board(self, tile, points, x, y, curr_color):
         tile_surface = pygame.Surface((self.TILE_SIZE, self.TILE_SIZE))
         tile_surface.fill(curr_color)
         pygame.draw.rect(tile_surface, self.CORAL, (2, 2, self.TILE_SIZE - 4, self.TILE_SIZE - 4))
@@ -393,8 +401,8 @@ class MathMender():
 
     def draw_rect_btn(self):
         self.rect_buttions = [
-            {"id": "play", "rect_btn": pygame.Rect(104, 530, 139, 45)},
-            {"id": "pass", "rect_btn": pygame.Rect(265, 530, 139, 45)},
+            {"id": "play", "rect_btn": pygame.Rect(26, 552, 230, 45)},
+            {"id": "pass", "rect_btn": pygame.Rect(265, 552, 230, 45)},
         ]
 
         for rect in self.rect_buttions:
@@ -437,7 +445,10 @@ class MathMender():
                     for item in sorted_horiz_arr:
                         print(item)
                     
-                    horiz_str = ''.join(sorted_horiz_arr['tile'])
+                    print(f">>horiz_arr: {horiz_arr}")
+                    print(f">>sorted_horiz_arr: {sorted_horiz_arr}")
+                    for sha in sorted_horiz_arr:
+                        horiz_str += ''.join(sha['tile'])
                     print(f">>horiz_str: {horiz_str}")
 
 
@@ -467,66 +478,80 @@ class MathMender():
                             break
                     
                     # sort vertical array in ascending order base on row
-                    sorted_verti_arr = sorted(horiz_arr, key=lambda x: x['row'])
+                    sorted_verti_arr = sorted(verti_arr, key=lambda x: x['row'])
                     for item in sorted_verti_arr:
                         print(item)
                     
-                    verti_str = ''.join(sorted_verti_arr['tile'])
+                    print(f">>verti_arr: {verti_arr}")
+                    print(f">>sorted_verti_arr: {sorted_verti_arr}")
+                    for sva in sorted_verti_arr:
+                        verti_str += ''.join(sva['tile'])
                     print(f">>verti_str: {verti_str}")
 
-                    horiz_parts = horiz_str.split('=')
-                    verti_parts = verti_str.split('=')
-                    horiz_ref = eval(horiz_parts[0])
-                    verti_ref = eval(verti_parts[0])
-                    horiz_eval = True
-                    verti_eval = True
+                    if len(horiz_str) != 1 and len(verti_str) != 1:
+                        horiz_parts = horiz_str.split('=')
+                        verti_parts = verti_str.split('=')
+                        horiz_ref = eval(horiz_parts[0])
+                        verti_ref = eval(verti_parts[0])
+                        horiz_eval = True
+                        verti_eval = True
 
-                    for part in horiz_parts[1:]:
-                        if eval(part) != horiz_ref:
-                            horiz_eval = False
-                            break
-                    for part in verti_parts[1:]:
-                        if eval(part) != verti_ref:
-                            verti_eval = False
-                            break
-                    
-                    if horiz_eval and verti_eval:
-                        # if horiz_ref == verti_ref: # not sure kung need neto
-                        one_tile_point = 0
-                        all_tiles = set(self.BLUE_TILES) | set(self.GREEN_TILES) | set(self.YELLOW_TILES) | set(self.RED_TILES)
+                        for part in horiz_parts[1:]:
+                            if eval(part) != horiz_ref:
+                                horiz_eval = False
+                                break
+                        for part in verti_parts[1:]:
+                            if eval(part) != verti_ref:
+                                verti_eval = False
+                                break
                         
-                        if (start_row, start_col) in self.BLUE_TILES:
-                            one_tile_point += (int(self.curr_game_board[start_row][start_col]['points']) * 2)
-                            print(f">>one_tile_point blue: {one_tile_point}")
-                        if (start_row, start_col) in self.GREEN_TILES:
-                            one_tile_point += (int(self.curr_game_board[start_row][start_col]['points']) * 3)
-                            print(f">>one_tile_point green: {one_tile_point}")
-                        
-                        if (start_row, start_col) in self.YELLOW_TILES:
-                            one_tile_point += (int(horiz_ref) * 2)
-                            print(f">>one_tile_point yellow: {one_tile_point}")
-                        if (start_row, start_col) in self.RED_TILES:
-                            one_tile_point += (int(horiz_ref) * 3)
-                            print(f">>one_tile_point red: {one_tile_point}")
-                        
-                        if (start_row, start_col) not in all_tiles:
-                            one_tile_point += int(self.curr_game_board[start_row][start_col]['points'])
-                            print(f">>one_tile_point no bonus: {one_tile_point}")
-                        
-                        print(f">>one_tile_point total: {one_tile_point}")
-                        self.PLAYER_SCORE += one_tile_point
-                        self.curr_game_board[start_row][start_col] = self.curr_equation[0]
+                        if horiz_eval and verti_eval:
+                            # if horiz_ref == verti_ref: # not sure kung need neto
+                            one_tile_point = 0
+                            all_tiles = set(self.BLUE_TILES) | set(self.GREEN_TILES) | set(self.YELLOW_TILES) | set(self.RED_TILES)
+                            
+                            if (start_row, start_col) in self.BLUE_TILES:
+                                one_tile_point += (int(self.curr_game_board[start_row][start_col]['points']) * 2)
+                                print(f">>one_tile_point blue: {one_tile_point}")
+                            if (start_row, start_col) in self.GREEN_TILES:
+                                one_tile_point += (int(self.curr_game_board[start_row][start_col]['points']) * 3)
+                                print(f">>one_tile_point green: {one_tile_point}")
+                            
+                            if (start_row, start_col) in self.YELLOW_TILES:
+                                one_tile_point += (int(horiz_ref) * 2)
+                                print(f">>one_tile_point yellow: {one_tile_point}")
+                            if (start_row, start_col) in self.RED_TILES:
+                                one_tile_point += (int(horiz_ref) * 3)
+                                print(f">>one_tile_point red: {one_tile_point}")
+                            
+                            if (start_row, start_col) not in all_tiles:
+                                one_tile_point += int(self.curr_game_board[start_row][start_col]['points'])
+                                print(f">>one_tile_point no bonus: {one_tile_point}")
+                            
+                            print(f">>one_tile_point total: {one_tile_point}")
+                            self.PLAYER_SCORE += one_tile_point
+                            self.curr_game_board[start_row][start_col] = self.curr_equation[0]
 
-                        self.draw_total_points()
-                        self.draw_new_random_tiles()
-                        for row in range(15):
-                            for col in range(15):
-                                self.game_board[row][col] = self.curr_game_board[row][col]
+                            self.draw_total_points()
+                            self.draw_new_random_tiles()
+                            for row in range(15):
+                                for col in range(15):
+                                    self.game_board[row][col] = self.curr_game_board[row][col]
+                            
+                            self.curr_equation.clear()
+                            self.show_green_prompt("VALID EQUATION.")
+                            return True
                         
-                        self.curr_equation.clear()
-                        self.show_green_prompt("VALID EQUATION.")
-                        return True
-                    
+                        else:
+                            for piece in self.curr_equation:
+                                self.curr_game_board[piece["row"]][piece["col"]] = None
+                                self.player_pieces.append(piece)
+                            self.curr_equation.clear()
+
+                            print(f"\n>>[ERROR] INVALID EQUATION")
+                            self.show_invalid_equation_prompt("[ERROR] INVALID EQUATION")
+                            return False
+                        
                     else:
                         for piece in self.curr_equation:
                             self.curr_game_board[piece["row"]][piece["col"]] = None
@@ -837,43 +862,6 @@ class MathMender():
             self.show_invalid_equation_prompt("[ERROR] CENTER IS EMPTY")
             return False
     
-    def handle_blank_eq(self, blank_eq):
-        conversion_dict = {
-            '^2': '**2',
-            'x': '*',
-            '÷': '/',
-            '=': '==',
-            'blank': '',
-        }
-        permutation_arr = [
-            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-            '+', '-', '*', '/', '**2', '√', '==',  
-        ]
-
-        for b_eq in blank_eq:
-            beq_list = list(b_eq)
-
-            temp_blank_eq = []
-            for op, replacement in conversion_dict.items():
-                beq_list = beq_list.replace(op, replacement)
-            temp_blank_eq.append(beq_list)
-
-            empty_indices = [j for j, char in enumerate(temp_blank_eq) if char == '']
-            permutations = itertools.permutations(permutation_arr, len(empty_indices))
-
-            equations = []
-            for perm in permutations:
-                eq_copy = temp_blank_eq.copy()
-                for idx, val in zip(empty_indices, perm):
-                    eq_copy[idx] = val
-                equations.append(''.join(eq_copy))
-
-            for eq in equations:
-                if '==' in eq:
-                    if self.is_valid_chain_equation(eq):
-                        return True
-        return False
-    
     def convert_operators(self, equation_str):
         # Replace special operators with Python arithmetic operators or math functions
         conversion_dict = {
@@ -931,7 +919,7 @@ class MathMender():
     
     def draw_valid_tiles(self):
         for row, col in self.valid_tiles:
-            x = (col + 13) * (self.TILE_SIZE + self.TILE_MARGIN)
+            x = (col + 12.9) * (self.TILE_SIZE + self.TILE_MARGIN)
             y = (row + 0.3) * (self.TILE_SIZE + self.TILE_MARGIN)
             
             # Create a surface with per-pixel alpha values
@@ -1023,8 +1011,8 @@ class MathMender():
         AIscore_surface = font.render(f"{self.AI_SCORE}", True, self.WHITE)
 
         # Define the position of the text
-        PLAYERscore_rect = PLAYERscore_surface.get_rect(topleft=(160, 92)) 
-        AIscore_rect = PLAYERscore_surface.get_rect(topleft=(420, 92)) 
+        PLAYERscore_rect = PLAYERscore_surface.get_rect(topleft=(158, 81)) 
+        AIscore_rect = PLAYERscore_surface.get_rect(topleft=(190, 140)) 
 
         # Blit the text onto the display
         self.display.blit(PLAYERscore_surface, PLAYERscore_rect)
@@ -1049,20 +1037,22 @@ class MathMender():
                 for tile in ant_eq_list:
                     print(f">>ant_best_equation['tile_used']: {ant_best_equation['tile_used']}")
                     print(f">>tile: {tile}")
-                    if tile in ant_best_equation['tile_used']:
+                    print(f">>c_col: {c_col}")
+                    if c_col < 15:
                         if self.curr_game_board[c_row][c_col] is None:
-                            for ai_piece in self.ai_pieces:
-                                print(f">>1 self.curr_game_board[c_row][c_col]: {self.curr_game_board[c_row][c_col]}")
-                                print(f">>ai_piece: {ai_piece}")
-                                print(f">>ai_piece['tile']: {ai_piece['tile']}")
-                                if tile == ai_piece['tile']:
-                                    ant_tile = ai_piece.copy()
-                                    ant_tile['row'] = c_row
-                                    ant_tile['col'] = c_col
-                                    self.curr_game_board[c_row][c_col] = ant_tile
-                                    self.ai_pieces.remove(ai_piece)
-                                    print(f">>2 self.curr_game_board[c_row][c_col]: {self.curr_game_board[c_row][c_col]}")
-                                    break 
+                            if tile in ant_best_equation['tile_used']:
+                                for ai_piece in self.ai_pieces:
+                                    print(f">>1 self.curr_game_board[c_row][c_col]: {self.curr_game_board[c_row][c_col]}")
+                                    print(f">>ai_piece: {ai_piece}")
+                                    print(f">>ai_piece['tile']: {ai_piece['tile']}")
+                                    if tile == ai_piece['tile']:
+                                        ant_tile = ai_piece.copy()
+                                        ant_tile['row'] = c_row
+                                        ant_tile['col'] = c_col
+                                        self.curr_game_board[c_row][c_col] = ant_tile
+                                        self.ai_pieces.remove(ai_piece)
+                                        print(f">>2 self.curr_game_board[c_row][c_col]: {self.curr_game_board[c_row][c_col]}")
+                                        break 
                     c_col += 1
 
             elif ant_best_equation['rowcol'] == 'vertical':
@@ -1077,20 +1067,22 @@ class MathMender():
                 for tile in ant_eq_list:
                     print(f">>ant_best_equation['tile_used']: {ant_best_equation['tile_used']}")
                     print(f">>tile: {tile}")
-                    if tile in ant_best_equation['tile_used']:
+                    print(f">>c_row: {c_row}")
+                    if c_row < 15:
                         if self.curr_game_board[c_row][c_col] is None:
-                            for ai_piece in self.ai_pieces:
-                                print(f">>1 self.curr_game_board[c_row][c_col]: {self.curr_game_board[c_row][c_col]}")
-                                print(f">>ai_piece: {ai_piece}")
-                                print(f">>ai_piece['tile']: {ai_piece['tile']}")
-                                if tile == ai_piece['tile']:
-                                    ant_tile = ai_piece.copy()
-                                    ant_tile['row'] = c_row
-                                    ant_tile['col'] = c_col
-                                    self.curr_game_board[c_row][c_col] = ant_tile
-                                    self.ai_pieces.remove(ai_piece)
-                                    print(f">>2 self.curr_game_board[c_row][c_col]: {self.curr_game_board[c_row][c_col]}")
-                                    break 
+                            if tile in ant_best_equation['tile_used']:
+                                for ai_piece in self.ai_pieces:
+                                    print(f">>1 self.curr_game_board[c_row][c_col]: {self.curr_game_board[c_row][c_col]}")
+                                    print(f">>ai_piece: {ai_piece}")
+                                    print(f">>ai_piece['tile']: {ai_piece['tile']}")
+                                    if tile == ai_piece['tile']:
+                                        ant_tile = ai_piece.copy()
+                                        ant_tile['row'] = c_row
+                                        ant_tile['col'] = c_col
+                                        self.curr_game_board[c_row][c_col] = ant_tile
+                                        self.ai_pieces.remove(ai_piece)
+                                        print(f">>2 self.curr_game_board[c_row][c_col]: {self.curr_game_board[c_row][c_col]}")
+                                        break 
                     c_row += 1
             
             for tile in self.curr_game_board:
@@ -1133,7 +1125,7 @@ class MathMender():
             using ant colony optimization algorithm the ai will choose which equation seems to be the most optimal
             to put in the board
         '''
-
+        from states.ACO import AntColonyOptimization
         conversion_dict = {
             '^2': '**2',
             'x': '*',
@@ -1211,6 +1203,9 @@ class MathMender():
             # input(print(f"\n>>>>>>"))
             rc_idx += 1
         
+        for row_col in rowcol_equation:
+            print(row_col)
+
         aco = AntColonyOptimization(rowcol_equation)
         best_solution, best_score = aco.run()
         ant_solutions = []
@@ -1440,18 +1435,39 @@ class MathMender():
             self.ai_pieces.append(piece)
             if new_tile in self.TILE_PCS:
                 self.TILE_PCS[new_tile] -= 1
+    
+    def format_time(self, seconds):
+        minutes = seconds // 60
+        seconds = seconds % 60
+        return f"{minutes:02}:{seconds:02}"
+    
+    def start_timer(self):
+        self.font_timer = pygame.font.Font(None, 80)
+        seconds_elapsed = (pygame.time.get_ticks() - self.start_ticks) // 1000
+        remaining_seconds = self.total_seconds - seconds_elapsed
+
+        if remaining_seconds > 0:
+            time_str = self.format_time(remaining_seconds)
+            text = self.font_timer.render(time_str, True, self.WHITE)
+        else:
+            text = self.font_timer.render("XX:XX", True, self.RED)
+            remaining_seconds = 0  # Ensure the timer stops at 0
+
+        text_rect = text.get_rect(center=(380, 100))  # Position the timer at the top center
+        self.display.blit(text, text_rect)
+
+        if remaining_seconds == 0:
+            if self.PLAYER_SCORE > self.AI_SCORE:
+                from states.win import Win
+                self.gameStateManager.set_state(Win(self.display, self.gameStateManager))
+                self.gameStateManager.get_state().run(self.PLAYER_SCORE, self.AI_SCORE)
+            
+            else:
+                from states.lose import Lose
+                self.gameStateManager.set_state(Lose(self.display, self.gameStateManager))
+                self.gameStateManager.get_state().run(self.PLAYER_SCORE, self.AI_SCORE)
 
     def load_assets(self):
         self.assets_dir = os.path.join("assets")
         self.images_dir = os.path.join(self.assets_dir, "images")
         self.FONT = pygame.font.Font(None, self.FONT_SIZE)
-
-### remove after dev
-if __name__ == "__main__":
-    SCREEN_WIDTH = 1200
-    SCREEN_HEIGHT = 650
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    game_state_manager = GameStateManager('MathMender')
-    game_state_manager.set_state(MathMender(screen, game_state_manager))
-    game_state_manager.get_state().run()
-###

@@ -1,10 +1,6 @@
 import pygame
 import os
 
-### remove after dev
-from game_state_manager import GameStateManager
-###
-
 class Title():
     def __init__(self, display, gameStateManager):
         self.display = display
@@ -34,11 +30,8 @@ class Title():
         ]
 
     def run(self):
-        ### change the import to this after dev
-        # from states.instruction import Instruction
-        # from states.math_mender import MathMender
-        from instruction import Instruction
-        from math_mender import MathMender
+        from states.instruction import Instruction
+        from states.math_mender import MathMender
 
         self.load_assets()
         self.draw_bg()
@@ -112,7 +105,7 @@ class Title():
     def draw_rect_btns(self):
         transparent_surface = pygame.Surface((self.SCREEN_WIDTH, self.SCREEN_HEIGHT), pygame.SRCALPHA)
         for rect in self.rectangles:
-            pygame.draw.rect(transparent_surface, (255, 255, 255, 0), rect["rect"], 0)  # Set alpha to 0 for full transparency
+            pygame.draw.rect(transparent_surface, (255, 255, 255, 1), rect["rect"], 1) 
         self.display.blit(transparent_surface, (0, 0))
 
     def load_assets(self):
@@ -121,17 +114,17 @@ class Title():
 
         # Initialize the rectangles
         self.rectangles = [
-            {"id": 1, "rect": pygame.Rect(370, 248, 255, 50)},
-            {"id": 2, "rect": pygame.Rect(370, 326, 255, 50)},
-            {"id": 3, "rect": pygame.Rect(370, 402, 255, 50)},
+            {"id": 1, "rect": pygame.Rect(440, 270, 320, 60)},
+            {"id": 2, "rect": pygame.Rect(440, 350, 320, 60)},
+            {"id": 3, "rect": pygame.Rect(440, 435, 320, 60)},
         ]
 
 ### remove after dev
-if __name__ == "__main__":
-    SCREEN_WIDTH = 1000
-    SCREEN_HEIGHT = 600
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    game_state_manager = GameStateManager('title')
-    game_state_manager.set_state(Title(screen, game_state_manager))
-    game_state_manager.get_state().run()
+# if __name__ == "__main__":
+#     SCREEN_WIDTH = 1200
+#     SCREEN_HEIGHT = 650
+#     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+#     game_state_manager = GameStateManager('title')
+#     game_state_manager.set_state(Title(screen, game_state_manager))
+#     game_state_manager.get_state().run()
 ###
