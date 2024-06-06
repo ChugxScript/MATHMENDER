@@ -599,10 +599,13 @@ class MathMender():
                         move_col = start_idx + move_idx
                         print(f">>move_col: {move_col}")
                         print(f">>stay_row: {stay_row}")
-                        if self.curr_game_board[stay_row][move_col] is not None:
-                            col_eq_arr.append(self.curr_game_board[stay_row][move_col])
-                            horizontal_str += self.curr_game_board[stay_row][move_col]['tile']
-                            move_idx += 1
+                        if move_col < 15:
+                            if self.curr_game_board[stay_row][move_col] is not None:
+                                col_eq_arr.append(self.curr_game_board[stay_row][move_col])
+                                horizontal_str += self.curr_game_board[stay_row][move_col]['tile']
+                                move_idx += 1
+                            else:
+                                break
                         else:
                             break
                     print(f">>col_eq_arr: {col_eq_arr}")
@@ -734,10 +737,13 @@ class MathMender():
                     row_eq_arr = []
                     while move_idx < 15:
                         move_row = start_idx + move_idx
-                        if self.curr_game_board[move_row][stay_col] is not None:
-                            row_eq_arr.append(self.curr_game_board[move_row][stay_col])
-                            vertical_str += self.curr_game_board[move_row][stay_col]['tile']
-                            move_idx += 1
+                        if  move_row < 15:
+                            if self.curr_game_board[move_row][stay_col] is not None:
+                                row_eq_arr.append(self.curr_game_board[move_row][stay_col])
+                                vertical_str += self.curr_game_board[move_row][stay_col]['tile']
+                                move_idx += 1
+                            else:
+                                break
                         else:
                             break
                     print(f">>row_eq_arr: {row_eq_arr}")
